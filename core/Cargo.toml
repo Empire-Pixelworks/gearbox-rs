@@ -1,0 +1,16 @@
+[package]
+name = "gearbox-core"
+version.workspace = true
+edition.workspace = true
+authors = ["Brandon Lanthrip <blanthrip@gmail.com>"]
+description = "Core framework for Gearbox"
+
+[dependencies]
+async-trait = { workspace = true }
+dashmap = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+log = "0.4.29"
+axum = { workspace = true }
+inventory = { workspace = true }
+tokio = { workspace = true }
