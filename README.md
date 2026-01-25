@@ -18,16 +18,17 @@ Add Gearbox to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-gearbox-core = { path = "../core" }
-gearbox-macros = { path = "../macros" }
+gearbox-rs = "0.1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+
+# For PostgreSQL support:
+# gearbox-rs = { version = "0.1", features = ["postgres"] }
 ```
 
 ## Hello World Example
 
 ```rust
-use gearbox_core::{IntoResponse, Path};
-use gearbox_macros::{cog, gearbox_app, get};
+use gearbox_rs::prelude::*;
 use std::sync::Arc;
 
 // Helper function for default message
@@ -203,7 +204,7 @@ pub struct User {
 Define custom SQL queries with `pg_queries!`:
 
 ```rust
-use gearbox_macros::pg_queries;
+use gearbox_rs::prelude::pg_queries;
 
 #[derive(sqlx::FromRow)]
 pub struct UserSummary {
