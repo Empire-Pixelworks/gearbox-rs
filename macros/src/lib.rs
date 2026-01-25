@@ -2,6 +2,7 @@ mod app;
 mod cog;
 mod config;
 mod pg_entity;
+mod pg_queries;
 mod route;
 
 use proc_macro::TokenStream;
@@ -209,4 +210,96 @@ pub fn pg_entity(input: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn gearbox_app(attr: TokenStream, item: TokenStream) -> TokenStream {
     app::generate_gearbox_app(attr, item)
+}
+
+/// Generate custom query methods on `PgClient`.
+///
+/// This macro allows you to define custom SQL queries with type-safe parameters
+/// and return types. Methods are generated directly on `PgClient`.
+///
+/// # Syntax
+///
+/// ```ignore
+/// pg_queries! {
+///     fn function_name(param1: Type1, param2: Type2) -> ReturnType {
+///         "SQL query with $1, $2 placeholders"
+///     }
+/// }
+/// ```
+///
+/// # Return Types
+///
+/// | Return Type | Behavior |
+/// |-------------|----------|
+/// | `Option<T>` | `fetch_optional` - returns `None` if no row found |
+/// | `Vec<T>` | `fetch_all` - returns all matching rows |
+/// | `T` (struct) | `fetch_one` - returns exactly one row, errors if not found |
+/// | `i64`, `String`, etc. | `query_scalar` - returns a single column value |
+/// | `bool` | `execute` - returns `true` if rows_affected > 0 |
+/// | `u64` | `execute` - returns rows_affected count |
+/// | (none) | `execute` - returns `()` |
+///
+/// # Example
+///
+/// ```ignore
+/// use gearbox_macros::pg_queries;
+///
+/// // Define a summary struct (must derive sqlx::FromRow)
+/// #[derive(sqlx::FromRow)]
+/// pub struct UserSummary {
+///     pub id: String,
+///     pub name: String,
+/// }
+///
+/// pg_queries! {
+///     // Returns Option<T> - fetch_optional
+///     fn find_user_by_email(email: &str) -> Option<User> {
+///         "SELECT * FROM users WHERE email = $1"
+///     }
+///
+///     // Returns Vec<T> - fetch_all
+///     fn find_users_by_status(status: &str) -> Vec<User> {
+///         "SELECT * FROM users WHERE status = $1"
+///     }
+///
+///     // Returns custom struct
+///     fn get_user_summary(id: &str) -> Option<UserSummary> {
+///         "SELECT id, name FROM users WHERE id = $1"
+///     }
+///
+///     // Returns scalar value
+///     fn count_active_users() -> i64 {
+///         "SELECT COUNT(*) FROM users WHERE active = true"
+///     }
+///
+///     // Returns bool (rows_affected > 0)
+///     fn deactivate_user(id: &str) -> bool {
+///         "UPDATE users SET active = false WHERE id = $1"
+///     }
+///
+///     // Returns rows affected
+///     fn delete_inactive_users() -> u64 {
+///         "DELETE FROM users WHERE active = false"
+///     }
+///
+///     // No return - just execute
+///     fn log_access(user_id: &str, action: &str) {
+///         "INSERT INTO audit_log (user_id, action) VALUES ($1, $2)"
+///     }
+/// }
+///
+/// // Usage:
+/// let client: Arc<PgClient> = hub.registry.get()?;
+/// let user = client.find_user_by_email("test@example.com").await?;
+/// let count = client.count_active_users().await?;
+/// ```
+///
+/// # Notes
+///
+/// - Return types must implement `sqlx::FromRow` (for structs) or be scalar types
+/// - Parameter count must match the number of `$N` placeholders in the SQL
+/// - The macro validates placeholder count at compile time
+#[proc_macro]
+pub fn pg_queries(input: TokenStream) -> TokenStream {
+    pg_queries::pg_queries(input)
 }

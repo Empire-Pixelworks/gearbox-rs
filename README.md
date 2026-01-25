@@ -9,7 +9,7 @@ A lightweight, opinionated Rust web framework with automatic dependency injectio
 - **Dependency Resolution** - Topological sorting ensures services are initialized in the correct order
 - **Configuration System** - Load config from TOML files and environment variables with relaxed binding
 - **Route Macros** - Define HTTP handlers with `#[get]`, `#[post]`, etc. and automatic parameter injection
-- **PostgreSQL Support** - `#[derive(PgEntity)]` generates CRUD operations for your entities
+- **PostgreSQL Support** - `#[derive(PgEntity)]` generates CRUD operations, `pg_queries!` for custom SQL
 - **Built on Axum** - Leverages the battle-tested Axum web framework under the hood
 
 ## Quick Start
@@ -197,6 +197,147 @@ pub struct User {
 // - create_batch(entities) -> batch INSERT
 // - upsert_batch(entities) -> batch UPSERT
 ```
+
+### Custom Queries
+
+Define custom SQL queries with `pg_queries!`:
+
+```rust
+use gearbox_macros::pg_queries;
+
+#[derive(sqlx::FromRow)]
+pub struct UserSummary {
+    pub id: String,
+    pub name: String,
+}
+
+pg_queries! {
+    fn find_user_by_email(email: &str) -> Option<User> {
+        "SELECT * FROM users WHERE email = $1"
+    }
+
+    fn find_active_users() -> Vec<User> {
+        "SELECT * FROM users WHERE active = true"
+    }
+
+    fn get_user_summary(id: &str) -> Option<UserSummary> {
+        "SELECT id, name FROM users WHERE id = $1"
+    }
+
+    fn count_users_by_role(role: &str) -> i64 {
+        "SELECT COUNT(*) FROM users WHERE role = $1"
+    }
+
+    fn deactivate_user(id: &str) -> bool {
+        "UPDATE users SET active = false WHERE id = $1"
+    }
+
+    fn delete_inactive() -> u64 {
+        "DELETE FROM users WHERE active = false"
+    }
+
+    fn log_action(user_id: &str, action: &str) {
+        "INSERT INTO audit_log (user_id, action) VALUES ($1, $2)"
+    }
+}
+```
+
+Usage - import the `PgQueries` trait:
+
+```rust
+use crate::PgQueries;
+
+let user = client.find_user_by_email("test@example.com").await?;
+let count = client.count_users_by_role("admin").await?;
+let deleted = client.deactivate_user("123").await?; // returns bool
+```
+
+Return type mapping:
+
+| Return Type | Behavior |
+|-------------|----------|
+| `Option<T>` | `fetch_optional` - returns `None` if no row |
+| `Vec<T>` | `fetch_all` - returns all matching rows |
+| `T` (struct) | `fetch_one` - errors if no row found |
+| `i64`, `String`, etc. | `query_scalar` - single column value |
+| `bool` | `execute` - `true` if rows_affected > 0 |
+| `u64` | `execute` - returns rows_affected |
+| (none) | `execute` - returns `()` |
+
+#### Complex Joins
+
+Use custom structs to represent JOIN results:
+
+```rust
+// Define a struct for the join result
+#[derive(sqlx::FromRow)]
+pub struct OrderWithCustomer {
+    // Order fields
+    pub order_id: i64,
+    pub order_date: chrono::NaiveDate,
+    pub total: f64,
+    // Customer fields from JOIN
+    pub customer_name: String,
+    pub customer_email: String,
+}
+
+#[derive(sqlx::FromRow)]
+pub struct ProductSalesReport {
+    pub product_name: String,
+    pub category: String,
+    pub total_sold: i64,
+    pub revenue: f64,
+}
+
+pg_queries! {
+    fn find_orders_with_customers(status: &str) -> Vec<OrderWithCustomer> {
+        "SELECT
+            o.id as order_id,
+            o.order_date,
+            o.total,
+            c.name as customer_name,
+            c.email as customer_email
+         FROM orders o
+         JOIN customers c ON o.customer_id = c.id
+         WHERE o.status = $1
+         ORDER BY o.order_date DESC"
+    }
+
+    fn get_sales_report(start_date: chrono::NaiveDate, end_date: chrono::NaiveDate) -> Vec<ProductSalesReport> {
+        "SELECT
+            p.name as product_name,
+            cat.name as category,
+            SUM(oi.quantity) as total_sold,
+            SUM(oi.quantity * oi.unit_price) as revenue
+         FROM order_items oi
+         JOIN products p ON oi.product_id = p.id
+         JOIN categories cat ON p.category_id = cat.id
+         JOIN orders o ON oi.order_id = o.id
+         WHERE o.order_date BETWEEN $1 AND $2
+         GROUP BY p.id, p.name, cat.name
+         ORDER BY revenue DESC"
+    }
+
+    fn find_user_with_latest_order(user_id: &str) -> Option<UserWithOrder> {
+        "SELECT
+            u.id, u.name, u.email,
+            o.id as last_order_id,
+            o.total as last_order_total,
+            o.order_date as last_order_date
+         FROM users u
+         LEFT JOIN LATERAL (
+            SELECT id, total, order_date
+            FROM orders
+            WHERE user_id = u.id
+            ORDER BY order_date DESC
+            LIMIT 1
+         ) o ON true
+         WHERE u.id = $1"
+    }
+}
+```
+
+The struct field names must match the column aliases in your SQL query. Use `AS` to rename columns from joins to avoid conflicts and match your struct fields.
 
 ## Project Structure
 
