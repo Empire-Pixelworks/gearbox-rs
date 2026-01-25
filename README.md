@@ -10,6 +10,7 @@ A lightweight, opinionated Rust web framework with automatic dependency injectio
 - **Configuration System** - Load config from TOML files and environment variables with relaxed binding
 - **Route Macros** - Define HTTP handlers with `#[get]`, `#[post]`, etc. and automatic parameter injection
 - **PostgreSQL Support** - `#[derive(PgEntity)]` generates CRUD operations, `pg_queries!` for custom SQL
+- **REST API Generation** - `#[derive(Crud)]` generates complete REST endpoints with filtering and pagination
 - **Built on Axum** - Leverages the battle-tested Axum web framework under the hood
 
 ## Quick Start
@@ -339,6 +340,110 @@ pg_queries! {
 ```
 
 The struct field names must match the column aliases in your SQL query. Use `AS` to rename columns from joins to avoid conflicts and match your struct fields.
+
+### REST API Generation with Crud
+
+Generate complete REST endpoints with `#[derive(Crud)]`:
+
+```rust
+#[derive(PgEntity, Crud)]
+#[table("users")]
+#[crud(path = "/users")]
+pub struct User {
+    #[primary_key]
+    #[auto_generated]
+    pub id: Uuid,
+
+    #[searchable]
+    pub name: String,
+
+    #[searchable(eq)]
+    pub email: String,
+
+    #[writeonly]
+    pub password_hash: String,
+
+    #[readonly]
+    pub created_at: DateTime<Utc>,
+
+    #[searchable]
+    pub updated_at: DateTime<Utc>,
+
+    pub active: bool,
+}
+```
+
+This generates:
+
+**DTOs:**
+- `UserCreate` - For POST requests (excludes `id`, `created_at`)
+- `UserUpdate` - For PATCH requests (all fields optional)
+- `UserQuery` - Query parameters with filtering operators
+- `UserResponse` - For responses (excludes `password_hash`)
+
+**Routes:**
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/users` | List with filtering and pagination |
+| GET | `/users/{id}` | Get single entity |
+| POST | `/users` | Create new entity |
+| PUT | `/users/{id}` | Full update |
+| PATCH | `/users/{id}` | Partial update |
+| DELETE | `/users/{id}` | Delete entity |
+
+#### Field Attributes
+
+| Attribute | Description |
+|-----------|-------------|
+| `#[auto_generated]` | DB generates this (UUID, serial). Excluded from create/update DTOs |
+| `#[readonly]` | Only in responses (e.g., `created_at`). Excluded from create/update |
+| `#[writeonly]` | Only in create/update (e.g., `password_hash`). Excluded from responses |
+| `#[searchable]` | Include in query params with type-based operators |
+| `#[searchable(eq, like)]` | Override default operators |
+
+#### Searchable Operators by Type
+
+| Type | Default Operators |
+|------|-------------------|
+| `String` | `eq`, `like` (ILIKE), `starts_with` |
+| `i32`, `i64`, `f64` | `eq`, `gt`, `gte`, `lt`, `lte` |
+| `DateTime`, `NaiveDate` | `eq`, `gt`, `gte`, `lt`, `lte` |
+| `bool`, `Uuid` | `eq` |
+
+#### Query Examples
+
+```bash
+# Filter by name containing "john" (case-insensitive)
+GET /users?name_like=john
+
+# Filter by exact email
+GET /users?email=john@example.com
+
+# Filter by date range with sorting and pagination
+GET /users?updated_at_gte=2024-01-01&sort=-created_at&limit=10&offset=0
+```
+
+#### Struct-Level Options
+
+```rust
+#[derive(PgEntity, Crud)]
+#[table("audit_logs")]
+#[crud(path = "/logs", read_only)]  // Only GET endpoints
+pub struct AuditLog { ... }
+
+#[crud(skip_create)]   // No POST endpoint
+#[crud(skip_delete)]   // No DELETE endpoint
+```
+
+#### OpenAPI Support
+
+Enable the `openapi` feature for automatic utoipa schema generation:
+
+```toml
+gearbox-rs = { version = "0.1", features = ["postgres", "openapi"] }
+```
+
+The generated DTOs will include `#[derive(utoipa::ToSchema)]` and query DTOs will include `#[derive(utoipa::IntoParams)]`.
 
 ## Project Structure
 

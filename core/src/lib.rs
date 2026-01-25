@@ -1,5 +1,6 @@
 mod cog;
 mod config;
+pub mod crud;
 mod error;
 mod extract;
 mod factory;
