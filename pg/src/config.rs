@@ -4,7 +4,7 @@ use sqlx::postgres::PgPoolOptions;
 use sqlx::{Executor, PgPool, Pool, Postgres};
 use std::path::Path;
 use gearbox_macros::cog_config;
-use crate::client::PgError;
+use crate::error::PgError;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[cog_config("postgres")]
@@ -52,21 +52,19 @@ impl PgConfig {
 }
 
 pub async fn init_schema_pool(config: &PgConfig) -> Result<PgPool, PgError> {
-    migrate(&config).await?;
-    
-    Ok(
-        PgPoolOptions::new()
-            .max_connections(config.max_connections)
-            .connect(&config.connection_string())
-            .await
-            .map_err(|e| PgError::ConnectionFailed(e.to_string()))? 
-    )
+    migrate(config).await?;
+
+    PgPoolOptions::new()
+        .max_connections(config.max_connections)
+        .connect(&config.connection_string())
+        .await
+        .map_err(|e| PgError::ConnectionFailed(e.to_string()))
 }
 
 async fn get_migration_conn(config: &PgConfig) -> Result<Pool<Postgres>, PgError> {
     let search_path_command = format!("SET search_path = '{}';", &config.schema_name);
     let create_schema_command = format!("CREATE SCHEMA IF NOT EXISTS {};", &config.schema_name);
-    
+
     PgPoolOptions::new()
         .max_connections(1)
         .after_connect(move |conn, _meta| {
@@ -85,17 +83,17 @@ async fn get_migration_conn(config: &PgConfig) -> Result<Pool<Postgres>, PgError
 
 async fn migrate(config: &PgConfig) -> Result<(), PgError> {
     if !config.migration_path.is_empty() {
-        let postgres_pool = get_migration_conn(&config).await?;
+        let postgres_pool = get_migration_conn(config).await?;
         Ok(
             Migrator::new(Path::new(&config.migration_path))
                 .await
                 .map_err(|e| PgError::MigrationFailed(format!("{:?}", e)))?
                 .run(&postgres_pool)
                 .await
-                .map_err(|e| PgError::MigrationFailed(e.to_string()))? 
+                .map_err(|e| PgError::MigrationFailed(e.to_string()))?
         )
     } else {
         //warn!("No migration path provided; proceeding without running migrations");
         Ok(())
-    } 
+    }
 }

@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use axum::extract::Path;
 use axum::Json;
 use gearbox_core::IntoResponse;

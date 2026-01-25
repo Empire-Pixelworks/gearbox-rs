@@ -33,7 +33,7 @@ pub fn generate_cog(item: TokenStream) -> TokenStream {
         _ => panic!("#[cog] can only be applied to structs"),
     };
 
-    let parsed_fields: Vec<ParsedField> = fields.iter().map(|f| parse_field(f)).collect();
+    let parsed_fields: Vec<ParsedField> = fields.iter().map(parse_field).collect();
 
     let inject_types: Vec<&Type> = parsed_fields
         .iter()
@@ -208,17 +208,13 @@ fn parse_field(field: &Field) -> ParsedField {
 }
 
 fn extract_arc_inner(ty: &Type) -> Option<Type> {
-    if let Type::Path(type_path) = ty {
-        if let Some(segment) = type_path.path.segments.last() {
-            if segment.ident == "Arc" {
-                if let PathArguments::AngleBracketed(args) = &segment.arguments {
-                    if let Some(GenericArgument::Type(inner)) = args.args.first() {
+    if let Type::Path(type_path) = ty
+        && let Some(segment) = type_path.path.segments.last()
+            && segment.ident == "Arc"
+                && let PathArguments::AngleBracketed(args) = &segment.arguments
+                    && let Some(GenericArgument::Type(inner)) = args.args.first() {
                         return Some(inner.clone());
                     }
-                }
-            }
-        }
-    }
     None
 }
 

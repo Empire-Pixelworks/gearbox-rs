@@ -9,6 +9,12 @@ pub struct CogRegistry {
     modules: DashMap<TypeId, Arc<dyn Any + Send + Sync>>,
 }
 
+impl Default for CogRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CogRegistry {
     pub fn new() -> Self {
         Self {
@@ -18,14 +24,14 @@ impl CogRegistry {
 
     pub fn get<C: Cog + 'static>(&self) -> Result<Arc<C>, Error> {
         let cog = self.modules.get(&TypeId::of::<C>())
-            .ok_or(CogNotFound(format!("{}", type_name::<C>())))?;
+            .ok_or(CogNotFound(type_name::<C>().to_string()))?;
 
-        cog.value().clone().downcast::<C>().map_err(|_| CogDowncastFailed(format!("{}", type_name::<C>())))
+        cog.value().clone().downcast::<C>().map_err(|_| CogDowncastFailed(type_name::<C>().to_string()))
     }
 
     pub fn put<C: Cog + 'static>(&self, cog: C) -> Result<(), Error> {
         let _ = self.modules.insert(TypeId::of::<C>(), Arc::new(cog))
-            .ok_or(CogRegisterError(format!("{}", type_name::<C>())))?;
+            .ok_or(CogRegisterError(type_name::<C>().to_string()))?;
 
         Ok(())
     }

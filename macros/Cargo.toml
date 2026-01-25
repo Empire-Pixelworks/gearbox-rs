@@ -15,5 +15,8 @@ proc-macro2 = { workspace = true }
 
 [dev-dependencies]
 gearbox-core = { path = "../core" }
+gearbox-postgres = { path = "../pg" }
 serde = { version = "1.0", features = ["derive"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+axum = { workspace = true }
+inventory = { workspace = true }

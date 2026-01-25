@@ -13,8 +13,26 @@ pub struct Gearbox {
 }
 
 impl Gearbox {
+    /// Initialize the Gearbox framework.
+    ///
+    /// This method:
+    /// 1. Loads configuration from file and environment
+    /// 2. Initializes tracing based on config
+    /// 3. Builds all Cogs in dependency order
+    /// 4. Returns a ready-to-run Gearbox instance
     pub async fn crank() -> Result<Self, Error> {
-        let hub = Arc::new(Hub::new(Config::default()));
+        // Load configuration from file and environment
+        let config = Config::load()
+            .map_err(|e| Error::ServerError(format!("Config error: {}", e)))?;
+
+        // Initialize tracing based on config (RUST_LOG env takes precedence)
+        let log_level = std::env::var("RUST_LOG")
+            .unwrap_or_else(|_| config.app().log_level.clone());
+        let _ = tracing_subscriber::fmt()
+            .with_env_filter(tracing_subscriber::EnvFilter::new(&log_level))
+            .try_init();
+
+        let hub = Arc::new(Hub::new(config));
 
         let factories: HashMap<TypeId, &'static dyn CogFactory> =
             inventory::iter::<&'static dyn CogFactory>()
@@ -77,8 +95,11 @@ impl Gearbox {
         Ok(Self { hub })
     }
 
+    /// Start the HTTP server.
+    ///
+    /// Uses the port from `GearboxAppConfig.http_port` (default: 8080).
     pub async fn ignite(self) -> Result<(), Error> {
-        let port = self.hub.config.server_port();
+        let port = self.hub.app_config().http_port;
 
         let mut router = axum::Router::new();
         for route in inventory::iter::<RouteRegistration>() {

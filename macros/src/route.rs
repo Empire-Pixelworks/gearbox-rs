@@ -23,21 +23,13 @@ pub fn generate_route(method: &str, attr: TokenStream, item: TokenStream) -> Tok
         .sig
         .inputs
         .iter()
-        .map(|arg| transform_param(arg))
-        .collect();
-
-    let param_bindings: Vec<TokenStream2> = input
-        .sig
-        .inputs
-        .iter()
-        .filter_map(|arg| extract_binding(arg))
+        .map(transform_param)
         .collect();
 
     quote! {
         #vis #asyncness fn #handler_name(
             #(#transformed_params),*
         ) #output {
-            #(#param_bindings)*
             #body
         }
 
@@ -73,31 +65,13 @@ fn transform_param(arg: &FnArg) -> TokenStream2 {
     }
 }
 
-fn extract_binding(arg: &FnArg) -> Option<TokenStream2> {
-    match arg {
-        FnArg::Typed(pat_type) => {
-            let ty = &pat_type.ty;
-            if extract_arc_inner(ty).is_some() {
-                None
-            } else {
-                None
-            }
-        }
-        _ => None,
-    }
-}
-
 fn extract_arc_inner(ty: &Type) -> Option<&Type> {
-    if let Type::Path(type_path) = ty {
-        if let Some(segment) = type_path.path.segments.last() {
-            if segment.ident == "Arc" {
-                if let PathArguments::AngleBracketed(args) = &segment.arguments {
-                    if let Some(GenericArgument::Type(inner)) = args.args.first() {
+    if let Type::Path(type_path) = ty
+        && let Some(segment) = type_path.path.segments.last()
+            && segment.ident == "Arc"
+                && let PathArguments::AngleBracketed(args) = &segment.arguments
+                    && let Some(GenericArgument::Type(inner)) = args.args.first() {
                         return Some(inner);
                     }
-                }
-            }
-        }
-    }
     None
 }

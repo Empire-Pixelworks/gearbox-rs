@@ -1,5 +1,7 @@
+mod app;
 mod cog;
 mod config;
+mod pg_entity;
 mod route;
 
 use proc_macro::TokenStream;
@@ -123,4 +125,88 @@ pub fn patch(attr: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn cog_config(attr: TokenStream, item: TokenStream) -> TokenStream {
     config::generate_cog_config(attr, item)
+}
+
+/// Derive macro for implementing `PgEntity` and `PgRepository` traits.
+///
+/// Generates implementations that enable repository operations directly on `PgClient`.
+///
+/// # Attributes
+///
+/// ## Struct-level
+/// - `#[table("name")]` - Required. Specifies the database table name (may include schema).
+///
+/// ## Field-level
+/// - `#[primary_key]` - Marks field(s) as primary key. Multiple fields create composite keys.
+/// - `#[skip]` - Excludes field from all database operations. Field must implement `Default`.
+/// - `#[skip_upsert]` - Excludes field from UPDATE portion of upsert operations.
+/// - `#[pg_type(Type)]` - Casts field to a different type when binding to queries.
+///
+/// # Example
+///
+/// ```ignore
+/// use gearbox_macros::PgEntity;
+///
+/// #[derive(PgEntity)]
+/// #[table("users")]
+/// pub struct User {
+///     #[primary_key]
+///     pub id: String,
+///     pub name: String,
+///     pub email: String,
+///     #[skip]
+///     pub computed_field: String,  // Not stored in DB
+/// }
+///
+/// // Usage with PgClient:
+/// let client: Arc<PgClient> = hub.get()?;
+/// let user = client.create(user).await?;
+/// let found = client.find_by_id::<User>(&id).await?;
+/// ```
+///
+/// # Composite Keys
+///
+/// ```ignore
+/// #[derive(PgEntity)]
+/// #[table("order_items")]
+/// pub struct OrderItem {
+///     #[primary_key]
+///     pub order_id: i64,
+///     #[primary_key]
+///     pub product_id: i64,
+///     pub quantity: i32,
+/// }
+/// // Generated: type Id = (i64, i64);
+/// // Usage: client.find_by_id::<OrderItem>(&(order_id, product_id)).await?;
+/// ```
+#[proc_macro_derive(PgEntity, attributes(table, primary_key, skip, skip_upsert, pg_type))]
+pub fn pg_entity(input: TokenStream) -> TokenStream {
+    pg_entity::generate_pg_entity(input)
+}
+
+/// Generates a Gearbox application entry point.
+///
+/// This macro replaces the standard `main` function with the Gearbox startup sequence.
+/// It handles tokio runtime setup and initializes the Gearbox framework.
+///
+/// # Example
+///
+/// ```ignore
+/// use gearbox_macros::gearbox_app;
+///
+/// #[gearbox_app]
+/// fn main() {}
+/// ```
+///
+/// This expands to:
+///
+/// ```ignore
+/// #[tokio::main]
+/// async fn main() -> Result<(), gearbox_core::Error> {
+///     gearbox_core::Gearbox::crank().await?.ignite().await
+/// }
+/// ```
+#[proc_macro_attribute]
+pub fn gearbox_app(attr: TokenStream, item: TokenStream) -> TokenStream {
+    app::generate_gearbox_app(attr, item)
 }

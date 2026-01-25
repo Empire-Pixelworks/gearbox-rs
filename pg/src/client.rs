@@ -1,23 +1,22 @@
 use std::sync::Arc;
 use sqlx::PgPool;
-use thiserror::Error;
 use gearbox_core::{Error, Hub};
 use gearbox_macros::cog;
+use crate::config::{init_schema_pool, PgConfig};
 
 #[cog]
 pub struct PgClient {
     #[default_async(load_pool)]
+    #[allow(dead_code)]
     pub pool: Arc<PgPool>,
 }
 
 async fn load_pool(hub: Arc<Hub>) -> Result<Arc<PgPool>, Error> {
-    todo!()
-}
-
-#[derive(Clone, Debug, Error)]
-pub enum PgError {
-    #[error("{0}")]
-    ConnectionFailed(String),
-    #[error("{0}")]
-    MigrationFailed(String),
+    let config = hub.config.get::<PgConfig>();
+    Ok(
+        Arc::new(
+            init_schema_pool(&config).await
+                .map_err(|e| Error::ServerError(format!("{:?}", e)))?
+        )
+    )
 }
