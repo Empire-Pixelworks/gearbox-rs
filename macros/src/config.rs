@@ -14,7 +14,7 @@ pub fn generate_cog_config(attr: TokenStream, item: TokenStream) -> TokenStream 
     quote! {
         #input
 
-        impl gearbox_core::CogConfig for #struct_name {
+        impl gearbox_rs_core::CogConfig for #struct_name {
             const CONFIG_KEY: &'static str = #config_key;
         }
 
@@ -24,12 +24,12 @@ pub fn generate_cog_config(attr: TokenStream, item: TokenStream) -> TokenStream 
         }
 
         // Register with inventory for auto-discovery at startup
-        gearbox_core::inventory::submit! {
-            gearbox_core::ConfigMeta {
+        gearbox_rs_core::inventory::submit! {
+            gearbox_rs_core::ConfigMeta {
                 key: #config_key,
                 type_id_fn: #type_id_fn_name,
                 type_name: stringify!(#struct_name),
-                deserialize_fn: gearbox_core::deserialize_config::<#struct_name>,
+                deserialize_fn: gearbox_rs_core::deserialize_config::<#struct_name>,
             }
         }
     }

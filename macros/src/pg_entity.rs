@@ -139,7 +139,7 @@ fn generate_from_row(entity: &EntityInfo) -> TokenStream2 {
             if f.skip {
                 quote! { #ident: Default::default() }
             } else {
-                quote! { #ident: gearbox_postgres::Row::get(&row, #col_name) }
+                quote! { #ident: gearbox_rs_postgres::Row::get(&row, #col_name) }
             }
         })
         .collect();
@@ -385,7 +385,7 @@ fn generate_repository_impl(entity: &EntityInfo) -> TokenStream2 {
                 placeholders.join(", ")
             );
 
-            let mut query = gearbox_postgres::query(&sql);
+            let mut query = gearbox_rs_postgres::query(&sql);
             for id in ids {
                 query = query.bind(id);
             }
@@ -402,7 +402,7 @@ fn generate_repository_impl(entity: &EntityInfo) -> TokenStream2 {
 
             let mut results = Vec::with_capacity(ids.len());
             for id in ids {
-                if let Some(entity) = <Self as gearbox_postgres::PgRepository<#name>>::find_by_id(self, id).await? {
+                if let Some(entity) = <Self as gearbox_rs_postgres::PgRepository<#name>>::find_by_id(self, id).await? {
                     results.push(entity);
                 }
             }
@@ -429,7 +429,7 @@ fn generate_repository_impl(entity: &EntityInfo) -> TokenStream2 {
                 placeholders.join(", ")
             );
 
-            let mut query = gearbox_postgres::query(&sql);
+            let mut query = gearbox_rs_postgres::query(&sql);
             for id in ids {
                 query = query.bind(id);
             }
@@ -445,7 +445,7 @@ fn generate_repository_impl(entity: &EntityInfo) -> TokenStream2 {
 
             let mut total = 0u64;
             for id in ids {
-                if <Self as gearbox_postgres::PgRepository<#name>>::delete(self, id).await? {
+                if <Self as gearbox_rs_postgres::PgRepository<#name>>::delete(self, id).await? {
                     total += 1;
                 }
             }
@@ -454,38 +454,38 @@ fn generate_repository_impl(entity: &EntityInfo) -> TokenStream2 {
     };
 
     quote! {
-        #[gearbox_core::async_trait]
-        impl gearbox_postgres::PgRepository<#name> for gearbox_postgres::PgClient {
-            async fn create(&self, entity: #name) -> Result<#name, gearbox_postgres::PgError> {
-                gearbox_postgres::query(#insert_sql)
+        #[gearbox_rs_core::async_trait]
+        impl gearbox_rs_postgres::PgRepository<#name> for gearbox_rs_postgres::PgClient {
+            async fn create(&self, entity: #name) -> Result<#name, gearbox_rs_postgres::PgError> {
+                gearbox_rs_postgres::query(#insert_sql)
                     #(.bind(#insert_binds))*
                     .execute(self.pool.as_ref())
                     .await?;
                 Ok(entity)
             }
 
-            async fn upsert(&self, entity: #name) -> Result<#name, gearbox_postgres::PgError> {
-                gearbox_postgres::query(#upsert_sql)
+            async fn upsert(&self, entity: #name) -> Result<#name, gearbox_rs_postgres::PgError> {
+                gearbox_rs_postgres::query(#upsert_sql)
                     #(.bind(#insert_binds))*
                     .execute(self.pool.as_ref())
                     .await?;
                 Ok(entity)
             }
 
-            async fn update(&self, entity: #name) -> Result<#name, gearbox_postgres::PgError> {
-                let result = gearbox_postgres::query(#update_sql)
+            async fn update(&self, entity: #name) -> Result<#name, gearbox_rs_postgres::PgError> {
+                let result = gearbox_rs_postgres::query(#update_sql)
                     #(.bind(#update_binds))*
                     .execute(self.pool.as_ref())
                     .await?;
 
                 if result.rows_affected() == 0 {
-                    return Err(gearbox_postgres::PgError::NotFound);
+                    return Err(gearbox_rs_postgres::PgError::NotFound);
                 }
                 Ok(entity)
             }
 
-            async fn find_by_id(&self, id: &<#name as gearbox_postgres::PgEntity>::Id) -> Result<Option<#name>, gearbox_postgres::PgError> {
-                let row = gearbox_postgres::query(#select_by_id_sql)
+            async fn find_by_id(&self, id: &<#name as gearbox_rs_postgres::PgEntity>::Id) -> Result<Option<#name>, gearbox_rs_postgres::PgError> {
+                let row = gearbox_rs_postgres::query(#select_by_id_sql)
                     #pk_bind
                     .fetch_optional(self.pool.as_ref())
                     .await?;
@@ -493,12 +493,12 @@ fn generate_repository_impl(entity: &EntityInfo) -> TokenStream2 {
                 Ok(row.map(|row| #from_row))
             }
 
-            async fn find_by_ids(&self, ids: &[<#name as gearbox_postgres::PgEntity>::Id]) -> Result<Vec<#name>, gearbox_postgres::PgError> {
+            async fn find_by_ids(&self, ids: &[<#name as gearbox_rs_postgres::PgEntity>::Id]) -> Result<Vec<#name>, gearbox_rs_postgres::PgError> {
                 #find_by_ids_body
             }
 
-            async fn find_page(&self, limit: i64, offset: i64) -> Result<Vec<#name>, gearbox_postgres::PgError> {
-                let rows = gearbox_postgres::query(#find_page_sql)
+            async fn find_page(&self, limit: i64, offset: i64) -> Result<Vec<#name>, gearbox_rs_postgres::PgError> {
+                let rows = gearbox_rs_postgres::query(#find_page_sql)
                     .bind(limit)
                     .bind(offset)
                     .fetch_all(self.pool.as_ref())
@@ -507,25 +507,25 @@ fn generate_repository_impl(entity: &EntityInfo) -> TokenStream2 {
                 Ok(rows.into_iter().map(|row| #from_row).collect())
             }
 
-            async fn exists(&self, id: &<#name as gearbox_postgres::PgEntity>::Id) -> Result<bool, gearbox_postgres::PgError> {
-                let row = gearbox_postgres::query(#exists_sql)
+            async fn exists(&self, id: &<#name as gearbox_rs_postgres::PgEntity>::Id) -> Result<bool, gearbox_rs_postgres::PgError> {
+                let row = gearbox_rs_postgres::query(#exists_sql)
                     #pk_bind
                     .fetch_one(self.pool.as_ref())
                     .await?;
 
-                Ok(gearbox_postgres::Row::get::<bool, _>(&row, 0))
+                Ok(gearbox_rs_postgres::Row::get::<bool, _>(&row, 0))
             }
 
-            async fn count(&self) -> Result<i64, gearbox_postgres::PgError> {
-                let row = gearbox_postgres::query(#count_sql)
+            async fn count(&self) -> Result<i64, gearbox_rs_postgres::PgError> {
+                let row = gearbox_rs_postgres::query(#count_sql)
                     .fetch_one(self.pool.as_ref())
                     .await?;
 
-                Ok(gearbox_postgres::Row::get::<i64, _>(&row, 0))
+                Ok(gearbox_rs_postgres::Row::get::<i64, _>(&row, 0))
             }
 
-            async fn delete(&self, id: &<#name as gearbox_postgres::PgEntity>::Id) -> Result<bool, gearbox_postgres::PgError> {
-                let result = gearbox_postgres::query(#delete_sql)
+            async fn delete(&self, id: &<#name as gearbox_rs_postgres::PgEntity>::Id) -> Result<bool, gearbox_rs_postgres::PgError> {
+                let result = gearbox_rs_postgres::query(#delete_sql)
                     #pk_bind
                     .execute(self.pool.as_ref())
                     .await?;
@@ -533,18 +533,18 @@ fn generate_repository_impl(entity: &EntityInfo) -> TokenStream2 {
                 Ok(result.rows_affected() > 0)
             }
 
-            async fn delete_batch(&self, ids: &[<#name as gearbox_postgres::PgEntity>::Id]) -> Result<u64, gearbox_postgres::PgError> {
+            async fn delete_batch(&self, ids: &[<#name as gearbox_rs_postgres::PgEntity>::Id]) -> Result<u64, gearbox_rs_postgres::PgError> {
                 #delete_batch_body
             }
 
-            async fn create_batch(&self, entities: Vec<#name>) -> Result<Vec<#name>, gearbox_postgres::PgError> {
+            async fn create_batch(&self, entities: Vec<#name>) -> Result<Vec<#name>, gearbox_rs_postgres::PgError> {
                 if entities.is_empty() {
                     return Ok(Vec::new());
                 }
 
                 // Use a transaction for batch insert
                 for entity in &entities {
-                    gearbox_postgres::query(#insert_sql)
+                    gearbox_rs_postgres::query(#insert_sql)
                         #(.bind(#insert_binds.clone()))*
                         .execute(self.pool.as_ref())
                         .await?;
@@ -553,13 +553,13 @@ fn generate_repository_impl(entity: &EntityInfo) -> TokenStream2 {
                 Ok(entities)
             }
 
-            async fn upsert_batch(&self, entities: Vec<#name>) -> Result<Vec<#name>, gearbox_postgres::PgError> {
+            async fn upsert_batch(&self, entities: Vec<#name>) -> Result<Vec<#name>, gearbox_rs_postgres::PgError> {
                 if entities.is_empty() {
                     return Ok(Vec::new());
                 }
 
                 for entity in &entities {
-                    gearbox_postgres::query(#upsert_sql)
+                    gearbox_rs_postgres::query(#upsert_sql)
                         #(.bind(#insert_binds.clone()))*
                         .execute(self.pool.as_ref())
                         .await?;
@@ -585,7 +585,7 @@ pub fn generate_pg_entity(input: TokenStream) -> TokenStream {
     let table = &entity.table;
 
     let entity_impl = quote! {
-        impl gearbox_postgres::PgEntity for #name {
+        impl gearbox_rs_postgres::PgEntity for #name {
             type Id = #id_type;
 
             const TABLE: &'static str = #table;
@@ -596,7 +596,7 @@ pub fn generate_pg_entity(input: TokenStream) -> TokenStream {
                 #id_fn
             }
 
-            fn from_row(row: gearbox_postgres::PgRow) -> Self {
+            fn from_row(row: gearbox_rs_postgres::PgRow) -> Self {
                 #from_row
             }
         }

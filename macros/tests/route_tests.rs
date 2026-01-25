@@ -1,7 +1,7 @@
 //! Integration tests for the route macros (#[get], #[post], etc.)
 
-use gearbox_core::{IntoResponse, Json, Query, RouteRegistration};
-use gearbox_macros::{cog, delete, get, patch, post, put};
+use gearbox_rs_core::{IntoResponse, Json, Query, RouteRegistration};
+use gearbox_rs_macros::{cog, delete, get, patch, post, put};
 
 // Arc is used in handler signatures but transformed to Inject by the macros
 #[allow(unused_imports)]
@@ -139,7 +139,7 @@ fn test_mixed_params_routes_registered() {
 
 #[get("/users/:id")]
 async fn handler_with_path_param(
-    _path: gearbox_core::Path<String>,
+    _path: gearbox_rs_core::Path<String>,
     _service: Arc<TestService>,
 ) -> impl IntoResponse {
     "user"

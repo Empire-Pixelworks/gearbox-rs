@@ -33,7 +33,7 @@ pub fn generate_route(method: &str, attr: TokenStream, item: TokenStream) -> Tok
             #body
         }
 
-        gearbox_core::inventory::submit!(gearbox_core::RouteRegistration {
+        gearbox_rs_core::inventory::submit!(gearbox_rs_core::RouteRegistration {
             path: #path,
             method: #method,
             handler: || axum::routing::#method_ident(#handler_name),
@@ -52,11 +52,11 @@ fn transform_param(arg: &FnArg) -> TokenStream2 {
                 let new_pat = match pat.as_ref() {
                     Pat::Ident(ident) => {
                         let name = &ident.ident;
-                        quote! { gearbox_core::Inject(#name) }
+                        quote! { gearbox_rs_core::Inject(#name) }
                     }
                     _ => quote! { #pat },
                 };
-                quote! { #new_pat: gearbox_core::Inject<#inner> }
+                quote! { #new_pat: gearbox_rs_core::Inject<#inner> }
             } else {
                 quote! { #pat: #ty }
             }

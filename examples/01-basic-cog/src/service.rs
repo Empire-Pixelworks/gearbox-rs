@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use serde::Deserialize;
-use gearbox_macros::cog;
+use gearbox_rs_macros::cog;
 use crate::repo::{Database, User};
 
 #[derive(Deserialize)]

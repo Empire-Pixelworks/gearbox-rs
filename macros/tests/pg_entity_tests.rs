@@ -4,8 +4,8 @@
 //! for the PgEntity trait. Note that actual database tests would require
 //! a running Postgres instance.
 
-use gearbox_macros::PgEntity;
-use gearbox_postgres::PgEntity;
+use gearbox_rs_macros::PgEntity;
+use gearbox_rs_postgres::PgEntity;
 
 // === Basic single primary key ===
 

@@ -1,7 +1,7 @@
 //! Integration tests for the #[cog] macro with default attributes.
 
-use gearbox_core::{Cog, CogConfig, Config, Error, Hub};
-use gearbox_macros::{cog, cog_config};
+use gearbox_rs_core::{Cog, CogConfig, Config, Error, Hub};
+use gearbox_rs_macros::{cog, cog_config};
 use serde::Deserialize;
 use std::sync::Arc;
 
@@ -117,7 +117,7 @@ async fn test_async_default_error_propagation() {
 // === Module path function test ===
 
 mod utils {
-    use gearbox_core::{Error, Hub};
+    use gearbox_rs_core::{Error, Hub};
     use std::sync::Arc;
 
     pub fn create_id() -> String {

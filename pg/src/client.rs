@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use sqlx::PgPool;
-use gearbox_core::{Error, Hub};
-use gearbox_macros::cog;
+use gearbox_rs_core::{Error, Hub};
+use gearbox_rs_macros::cog;
 use crate::config::{init_schema_pool, PgConfig};
 
 #[cog]

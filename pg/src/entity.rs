@@ -2,12 +2,12 @@ use sqlx::postgres::PgRow;
 
 /// Trait that defines entity metadata for database operations.
 ///
-/// This trait is typically derived using `#[derive(PgEntity)]` from gearbox-macros.
+/// This trait is typically derived using `#[derive(PgEntity)]` from gearbox-rs-macros.
 ///
 /// # Example
 ///
 /// ```ignore
-/// use gearbox_macros::PgEntity;
+/// use gearbox_rs_macros::PgEntity;
 ///
 /// #[derive(PgEntity)]
 /// #[table("users")]

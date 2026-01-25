@@ -9,7 +9,7 @@ use crate::{PgEntity, PgError};
 /// # Example
 ///
 /// ```ignore
-/// use gearbox_postgres::{PgClient, PgRepository};
+/// use gearbox_rs_postgres::{PgClient, PgRepository};
 ///
 /// let client: Arc<PgClient> = hub.get()?;
 ///
@@ -25,7 +25,7 @@ use crate::{PgEntity, PgError};
 /// // Delete
 /// client.delete::<User>(&id).await?;
 /// ```
-#[gearbox_core::async_trait]
+#[gearbox_rs_core::async_trait]
 pub trait PgRepository<T: PgEntity>: Send + Sync {
     /// Insert a new entity into the database.
     /// Returns the entity back on success.

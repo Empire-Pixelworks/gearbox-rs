@@ -2,7 +2,7 @@
 //!
 //! These tests verify the macro generates correct trait and impl.
 
-use gearbox_macros::pg_queries;
+use gearbox_rs_macros::pg_queries;
 
 // Test struct that would normally derive FromRow
 #[derive(Debug, Clone)]
@@ -112,7 +112,7 @@ fn test_trait_generated() {
 fn test_impl_for_pg_client() {
     fn _assert_impl() {
         fn _check<T: PgQueries>(_: &T) {}
-        fn _use_it(client: &gearbox_postgres::PgClient) {
+        fn _use_it(client: &gearbox_rs_postgres::PgClient) {
             _check(client);
         }
     }
@@ -123,7 +123,7 @@ fn test_impl_for_pg_client() {
 fn test_method_signatures_compile() {
     // This function would use the methods if we had a real client
     #[allow(dead_code)]
-    async fn _use_methods(client: &gearbox_postgres::PgClient) {
+    async fn _use_methods(client: &gearbox_rs_postgres::PgClient) {
         use crate::PgQueries;
 
         let _: Result<Option<User>, _> = client.find_user_by_id("123").await;
@@ -143,7 +143,7 @@ fn test_method_signatures_compile() {
 #[test]
 fn test_no_params_query() {
     #[allow(dead_code)]
-    async fn _use_it(client: &gearbox_postgres::PgClient) {
+    async fn _use_it(client: &gearbox_rs_postgres::PgClient) {
         use crate::PgQueries;
         let _ = client.find_all_users().await;
         let _ = client.count_users().await;
@@ -153,7 +153,7 @@ fn test_no_params_query() {
 #[test]
 fn test_multiple_params_query() {
     #[allow(dead_code)]
-    async fn _use_it(client: &gearbox_postgres::PgClient) {
+    async fn _use_it(client: &gearbox_rs_postgres::PgClient) {
         use crate::PgQueries;
         let _ = client.find_users_by_status_and_role("active", "admin").await;
         let _ = client.log_user_action("user_123", "logged_in").await;

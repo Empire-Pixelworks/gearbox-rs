@@ -3,7 +3,7 @@ use sqlx::migrate::Migrator;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::{Executor, PgPool, Pool, Postgres};
 use std::path::Path;
-use gearbox_macros::cog_config;
+use gearbox_rs_macros::cog_config;
 use crate::error::PgError;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

@@ -94,7 +94,7 @@ pub fn generate_cog(item: TokenStream) -> TokenStream {
 
         struct #factory_name;
 
-        impl gearbox_core::CogFactory for #factory_name {
+        impl gearbox_rs_core::CogFactory for #factory_name {
             fn type_id(&self) -> std::any::TypeId {
                 std::any::TypeId::of::<#struct_name #ty_generics>()
             }
@@ -109,31 +109,31 @@ pub fn generate_cog(item: TokenStream) -> TokenStream {
 
             fn build(
                 &self,
-                hub: std::sync::Arc<gearbox_core::Hub>
-            ) -> gearbox_core::BoxFuture<
+                hub: std::sync::Arc<gearbox_rs_core::Hub>
+            ) -> gearbox_rs_core::BoxFuture<
                 'static,
-                Result<std::sync::Arc<dyn std::any::Any + Send + Sync>, gearbox_core::Error>
+                Result<std::sync::Arc<dyn std::any::Any + Send + Sync>, gearbox_rs_core::Error>
             > {
                 Box::pin(async move {
                     Ok(std::sync::Arc::new(
-                        <#struct_name #ty_generics as gearbox_core::Cog>::new(hub).await?
+                        <#struct_name #ty_generics as gearbox_rs_core::Cog>::new(hub).await?
                     ) as std::sync::Arc<dyn std::any::Any + Send + Sync>)
                 })
             }
         }
 
-        #[gearbox_core::async_trait]
-        impl #impl_generics gearbox_core::Cog for #struct_name #ty_generics #where_clause {
+        #[gearbox_rs_core::async_trait]
+        impl #impl_generics gearbox_rs_core::Cog for #struct_name #ty_generics #where_clause {
             async fn new(
-                hub: std::sync::Arc<gearbox_core::Hub>
-            ) -> Result<Self, gearbox_core::Error> {
+                hub: std::sync::Arc<gearbox_rs_core::Hub>
+            ) -> Result<Self, gearbox_rs_core::Error> {
                 #(#field_extractions)*
                 Ok(Self { #(#field_names),* })
             }
         }
 
-        gearbox_core::inventory::submit!(
-            &#factory_name as &'static dyn gearbox_core::CogFactory
+        gearbox_rs_core::inventory::submit!(
+            &#factory_name as &'static dyn gearbox_rs_core::CogFactory
         );
     }
     .into()

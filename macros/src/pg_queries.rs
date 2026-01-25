@@ -213,13 +213,13 @@ fn validate_placeholders(name: &Ident, params: &[(Ident, Type)], sql: &str) -> s
 /// Generate the return type for a trait method
 fn generate_return_type(return_kind: &ReturnKind) -> TokenStream2 {
     match return_kind {
-        ReturnKind::Option(inner_ty) => quote! { Result<Option<#inner_ty>, gearbox_postgres::PgError> },
-        ReturnKind::Vec(inner_ty) => quote! { Result<Vec<#inner_ty>, gearbox_postgres::PgError> },
-        ReturnKind::Single(ty) => quote! { Result<#ty, gearbox_postgres::PgError> },
-        ReturnKind::Scalar(ty) => quote! { Result<#ty, gearbox_postgres::PgError> },
-        ReturnKind::Unit => quote! { Result<(), gearbox_postgres::PgError> },
-        ReturnKind::Bool => quote! { Result<bool, gearbox_postgres::PgError> },
-        ReturnKind::RowsAffected => quote! { Result<u64, gearbox_postgres::PgError> },
+        ReturnKind::Option(inner_ty) => quote! { Result<Option<#inner_ty>, gearbox_rs_postgres::PgError> },
+        ReturnKind::Vec(inner_ty) => quote! { Result<Vec<#inner_ty>, gearbox_rs_postgres::PgError> },
+        ReturnKind::Single(ty) => quote! { Result<#ty, gearbox_rs_postgres::PgError> },
+        ReturnKind::Scalar(ty) => quote! { Result<#ty, gearbox_rs_postgres::PgError> },
+        ReturnKind::Unit => quote! { Result<(), gearbox_rs_postgres::PgError> },
+        ReturnKind::Bool => quote! { Result<bool, gearbox_rs_postgres::PgError> },
+        ReturnKind::RowsAffected => quote! { Result<u64, gearbox_rs_postgres::PgError> },
     }
 }
 
@@ -264,7 +264,7 @@ fn generate_impl_method(query: &QueryDef) -> TokenStream2 {
                     #(#bind_calls)*
                     .fetch_optional(&*self.pool)
                     .await
-                    .map_err(gearbox_postgres::PgError::from)
+                    .map_err(gearbox_rs_postgres::PgError::from)
             }
         }
         ReturnKind::Vec(inner_ty) => {
@@ -273,7 +273,7 @@ fn generate_impl_method(query: &QueryDef) -> TokenStream2 {
                     #(#bind_calls)*
                     .fetch_all(&*self.pool)
                     .await
-                    .map_err(gearbox_postgres::PgError::from)
+                    .map_err(gearbox_rs_postgres::PgError::from)
             }
         }
         ReturnKind::Single(ty) => {
@@ -282,7 +282,7 @@ fn generate_impl_method(query: &QueryDef) -> TokenStream2 {
                     #(#bind_calls)*
                     .fetch_one(&*self.pool)
                     .await
-                    .map_err(gearbox_postgres::PgError::from)
+                    .map_err(gearbox_rs_postgres::PgError::from)
             }
         }
         ReturnKind::Scalar(ty) => {
@@ -291,7 +291,7 @@ fn generate_impl_method(query: &QueryDef) -> TokenStream2 {
                     #(#bind_calls)*
                     .fetch_one(&*self.pool)
                     .await
-                    .map_err(gearbox_postgres::PgError::from)
+                    .map_err(gearbox_rs_postgres::PgError::from)
             }
         }
         ReturnKind::Unit => {
@@ -300,7 +300,7 @@ fn generate_impl_method(query: &QueryDef) -> TokenStream2 {
                     #(#bind_calls)*
                     .execute(&*self.pool)
                     .await
-                    .map_err(gearbox_postgres::PgError::from)?;
+                    .map_err(gearbox_rs_postgres::PgError::from)?;
                 Ok(())
             }
         }
@@ -310,7 +310,7 @@ fn generate_impl_method(query: &QueryDef) -> TokenStream2 {
                     #(#bind_calls)*
                     .execute(&*self.pool)
                     .await
-                    .map_err(gearbox_postgres::PgError::from)?;
+                    .map_err(gearbox_rs_postgres::PgError::from)?;
                 Ok(result.rows_affected() > 0)
             }
         }
@@ -320,7 +320,7 @@ fn generate_impl_method(query: &QueryDef) -> TokenStream2 {
                     #(#bind_calls)*
                     .execute(&*self.pool)
                     .await
-                    .map_err(gearbox_postgres::PgError::from)?;
+                    .map_err(gearbox_rs_postgres::PgError::from)?;
                 Ok(result.rows_affected())
             }
         }
@@ -355,7 +355,7 @@ pub fn pg_queries(input: TokenStream) -> TokenStream {
             #(#trait_methods)*
         }
 
-        impl PgQueries for gearbox_postgres::PgClient {
+        impl PgQueries for gearbox_rs_postgres::PgClient {
             #(#impl_methods)*
         }
     };

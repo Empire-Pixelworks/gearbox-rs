@@ -30,7 +30,7 @@ use proc_macro::TokenStream;
 ///
 /// ```ignore
 /// use std::sync::Arc;
-/// use gearbox_macros::cog;
+/// use gearbox_rs_macros::cog;
 ///
 /// #[cog]
 /// struct UserService {
@@ -146,7 +146,7 @@ pub fn cog_config(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// # Example
 ///
 /// ```ignore
-/// use gearbox_macros::PgEntity;
+/// use gearbox_rs_macros::PgEntity;
 ///
 /// #[derive(PgEntity)]
 /// #[table("users")]
@@ -193,7 +193,7 @@ pub fn pg_entity(input: TokenStream) -> TokenStream {
 /// # Example
 ///
 /// ```ignore
-/// use gearbox_macros::gearbox_app;
+/// use gearbox_rs_macros::gearbox_app;
 ///
 /// #[gearbox_app]
 /// fn main() {}
@@ -203,8 +203,8 @@ pub fn pg_entity(input: TokenStream) -> TokenStream {
 ///
 /// ```ignore
 /// #[tokio::main]
-/// async fn main() -> Result<(), gearbox_core::Error> {
-///     gearbox_core::Gearbox::crank().await?.ignite().await
+/// async fn main() -> Result<(), gearbox_rs_core::Error> {
+///     gearbox_rs_core::Gearbox::crank().await?.ignite().await
 /// }
 /// ```
 #[proc_macro_attribute]
@@ -242,7 +242,7 @@ pub fn gearbox_app(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// # Example
 ///
 /// ```ignore
-/// use gearbox_macros::pg_queries;
+/// use gearbox_rs_macros::pg_queries;
 ///
 /// // Define a summary struct (must derive sqlx::FromRow)
 /// #[derive(sqlx::FromRow)]

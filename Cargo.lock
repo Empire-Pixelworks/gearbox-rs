@@ -124,12 +124,12 @@ checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
 
 [[package]]
 name = "basic-cog"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "axum",
  "dashmap",
- "gearbox-core",
- "gearbox-macros",
+ "gearbox-rs-core",
+ "gearbox-rs-macros",
  "serde",
  "tokio",
  "tracing-subscriber",
@@ -487,8 +487,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "gearbox-core"
-version = "0.0.1"
+name = "gearbox-rs"
+version = "0.1.0"
+dependencies = [
+ "gearbox-rs-core",
+ "gearbox-rs-macros",
+ "gearbox-rs-postgres",
+]
+
+[[package]]
+name = "gearbox-rs-core"
+version = "0.1.0"
 dependencies = [
  "async-trait",
  "axum",
@@ -505,12 +514,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "gearbox-macros"
-version = "0.0.1"
+name = "gearbox-rs-macros"
+version = "0.1.0"
 dependencies = [
  "axum",
- "gearbox-core",
- "gearbox-postgres",
+ "gearbox-rs-core",
+ "gearbox-rs-postgres",
  "inventory",
  "proc-macro2",
  "quote",
@@ -521,11 +530,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "gearbox-postgres"
-version = "0.0.1"
+name = "gearbox-rs-postgres"
+version = "0.1.0"
 dependencies = [
- "gearbox-core",
- "gearbox-macros",
+ "gearbox-rs-core",
+ "gearbox-rs-macros",
  "serde",
  "sqlx",
  "thiserror",

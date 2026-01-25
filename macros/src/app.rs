@@ -15,8 +15,8 @@ pub fn generate_gearbox_app(_attr: TokenStream, item: TokenStream) -> TokenStrea
 
     let expanded = quote! {
         #[tokio::main]
-        async fn main() -> Result<(), gearbox_core::Error> {
-            gearbox_core::Gearbox::crank().await?.ignite().await
+        async fn main() -> Result<(), gearbox_rs_core::Error> {
+            gearbox_rs_core::Gearbox::crank().await?.ignite().await
         }
     };
 

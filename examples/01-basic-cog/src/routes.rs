@@ -1,7 +1,7 @@
 use axum::extract::Path;
 use axum::Json;
-use gearbox_core::IntoResponse;
-use gearbox_macros::{get, post};
+use gearbox_rs_core::IntoResponse;
+use gearbox_rs_macros::{get, post};
 use crate::service::{CreateUser, UserService};
 
 #[get("/users")]

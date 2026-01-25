@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
 members = [
+    "gearbox",
     "core",
     "pg",
     "macros",
@@ -8,9 +9,13 @@ members = [
 ]
 
 [workspace.package]
-version = "0.0.1"
+version = "0.1.0"
 edition = "2024"
+license = "MIT"
 repository = "https://github.com/Empire-Pixelworks/gearbox-rs"
+keywords = ["web", "framework", "dependency-injection", "axum", "async"]
+categories = ["web-programming::http-server", "asynchronous"]
+authors = ["Brandon Lanthrip <blanthrip@gmail.com>"]
 
 [workspace.dependencies]
 tokio = { version = "1.47" }
