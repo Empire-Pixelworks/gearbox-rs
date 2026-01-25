@@ -1,4 +1,8 @@
-pub trait CogConfig: Default + Send + Sync + 'static {}
+use serde::de::DeserializeOwned;
+
+pub trait CogConfig: DeserializeOwned + Default + Send + Sync + 'static {
+    const CONFIG_KEY: &'static str;
+}
 
 pub struct Config {
     port: u16,

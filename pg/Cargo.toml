@@ -1,0 +1,13 @@
+[package]
+name = "gearbox-postgres"
+version.workspace = true
+edition.workspace = true
+authors = ["Brandon Lanthrip <blanthrip@gmail.com>"]
+description = "Postgres plugin for Gearbox"
+
+[dependencies]
+gearbox-core = { path = "../core" }
+gearbox-macros = { path = "../macros" }
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "chrono", "uuid"]}
+thiserror = { workspace = true }
+serde = { version = "1.0.228", features = ["derive"] }

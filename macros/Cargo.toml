@@ -12,3 +12,8 @@ proc-macro = true
 syn = { workspace = true }
 quote = { workspace = true }
 proc-macro2 = { workspace = true }
+
+[dev-dependencies]
+gearbox-core = { path = "../core" }
+serde = { version = "1.0", features = ["derive"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

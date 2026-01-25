@@ -10,6 +10,8 @@ enum FieldKind {
     Inject(Type),
     Config,
     Default,
+    DefaultFn(syn::Path),      // #[default(fn)] -> fn() -> T
+    DefaultAsyncFn(syn::Path), // #[default_async(fn)] -> async fn(Arc<Hub>) -> Result<T, Error>
 }
 
 struct ParsedField {
@@ -57,6 +59,12 @@ pub fn generate_cog(item: TokenStream) -> TokenStream {
                 }
                 FieldKind::Default => {
                     quote! { let #name: #ty = Default::default(); }
+                }
+                FieldKind::DefaultFn(fn_path) => {
+                    quote! { let #name: #ty = #fn_path(); }
+                }
+                FieldKind::DefaultAsyncFn(fn_path) => {
+                    quote! { let #name: #ty = #fn_path(hub.clone()).await?; }
                 }
             }
         })
@@ -138,13 +146,60 @@ fn parse_field(field: &Field) -> ParsedField {
     let has_inject = field.attrs.iter().any(|a| a.path().is_ident("inject"));
     let has_config = field.attrs.iter().any(|a| a.path().is_ident("config"));
 
-    let kind = if has_inject {
-        let inner = extract_arc_inner(&ty).expect(
-            "#[inject] field must be Arc<T>"
+    let default_fn = field.attrs.iter().find_map(|a| {
+        if a.path().is_ident("default") {
+            Some(a.parse_args::<syn::Path>().unwrap_or_else(|_| {
+                panic!(
+                    "#[default] on field '{}' requires a function path. \
+                    Expected: #[default(my_function)] where my_function: fn() -> {}",
+                    name, quote!(#ty)
+                )
+            }))
+        } else {
+            None
+        }
+    });
+
+    let default_async_fn = field.attrs.iter().find_map(|a| {
+        if a.path().is_ident("default_async") {
+            Some(a.parse_args::<syn::Path>().unwrap_or_else(|_| {
+                panic!(
+                    "#[default_async] on field '{}' requires a function path. \
+                    Expected: #[default_async(my_function)] where my_function: \
+                    async fn(&Arc<Hub>) -> Result<{}, Error>",
+                    name, quote!(#ty)
+                )
+            }))
+        } else {
+            None
+        }
+    });
+
+    // Validate no conflicting attributes
+    let attr_count = has_inject as u8
+        + has_config as u8
+        + default_fn.is_some() as u8
+        + default_async_fn.is_some() as u8;
+
+    if attr_count > 1 {
+        panic!(
+            "Field '{}' has conflicting attributes. Use only one of: \
+            #[inject], #[config], #[default(fn)], #[default_async(fn)]",
+            name
         );
+    }
+
+    let kind = if has_inject {
+        let inner = extract_arc_inner(&ty).unwrap_or_else(|| {
+            panic!("#[inject] field '{}' must be Arc<T>", name)
+        });
         FieldKind::Inject(inner)
     } else if has_config {
         FieldKind::Config
+    } else if let Some(fn_path) = default_fn {
+        FieldKind::DefaultFn(fn_path)
+    } else if let Some(fn_path) = default_async_fn {
+        FieldKind::DefaultAsyncFn(fn_path)
     } else {
         FieldKind::Default
     };
@@ -177,7 +232,12 @@ fn strip_custom_attrs(fields: &Fields) -> TokenStream2 {
                     let attrs: Vec<_> = f
                         .attrs
                         .iter()
-                        .filter(|a| !a.path().is_ident("inject") && !a.path().is_ident("config"))
+                        .filter(|a| {
+                            !a.path().is_ident("inject")
+                                && !a.path().is_ident("config")
+                                && !a.path().is_ident("default")
+                                && !a.path().is_ident("default_async")
+                        })
                         .collect();
                     let vis = &f.vis;
                     let name = &f.ident;

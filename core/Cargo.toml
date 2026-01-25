@@ -14,3 +14,4 @@ log = "0.4.29"
 axum = { workspace = true }
 inventory = { workspace = true }
 tokio = { workspace = true }
+serde = "1"

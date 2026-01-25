@@ -1,4 +1,5 @@
 mod cog;
+mod config;
 mod route;
 
 use proc_macro::TokenStream;
@@ -16,6 +17,10 @@ use proc_macro::TokenStream;
 ///   The field type must be `Arc<T>` where `T: Cog`.
 /// - `#[config]` - Marks a field to be loaded from configuration.
 ///   The field type must implement `CogConfig + Default`.
+/// - `#[default(fn)]` - Marks a field to be initialized via a sync function.
+///   The function must have signature `fn() -> T`.
+/// - `#[default_async(fn)]` - Marks a field to be initialized via an async function.
+///   The function must have signature `async fn(&Arc<Hub>) -> Result<T, Error>`.
 /// - No attribute - Field must implement `Default` and will use `Default::default()`.
 ///
 /// # Example
@@ -33,6 +38,28 @@ use proc_macro::TokenStream;
 ///     #[config]
 ///     settings: UserServiceConfig,
 ///     request_count: u64,  // Uses Default::default()
+/// }
+/// ```
+///
+/// # Custom Default Functions
+///
+/// ```ignore
+/// fn empty_users() -> Vec<String> {
+///     Vec::new()
+/// }
+///
+/// async fn create_pool(hub: &Arc<Hub>) -> Result<PgPool, Error> {
+///     let config = hub.config.get::<DbConfig>();
+///     PgPool::connect(&config.url).await
+///         .map_err(|e| Error::ServerError(e.to_string()))
+/// }
+///
+/// #[cog]
+/// struct DataService {
+///     #[default(empty_users)]
+///     users: Vec<String>,
+///     #[default_async(create_pool)]
+///     pool: PgPool,
 /// }
 /// ```
 #[proc_macro_attribute]
@@ -77,4 +104,23 @@ pub fn delete(attr: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn patch(attr: TokenStream, item: TokenStream) -> TokenStream {
     route::generate_route("PATCH", attr, item)
+}
+
+/// Implements `CogConfig` trait for a struct with the given config key.
+///
+/// The struct must also derive `Default` and `serde::Deserialize`.
+///
+/// # Example
+///
+/// ```ignore
+/// #[cog_config("database")]
+/// #[derive(Default, Deserialize)]
+/// pub struct DbConfig {
+///     url: String,
+///     max_connections: u32,
+/// }
+/// ```
+#[proc_macro_attribute]
+pub fn cog_config(attr: TokenStream, item: TokenStream) -> TokenStream {
+    config::generate_cog_config(attr, item)
 }
