@@ -5,7 +5,8 @@ members = [
     "core",
     "pg",
     "macros",
-    "examples/*"
+    "examples/*",
+    "integration-tests"
 ]
 
 [workspace.package]

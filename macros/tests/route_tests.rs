@@ -137,7 +137,7 @@ fn test_mixed_params_routes_registered() {
 
 // === Path parameter tests ===
 
-#[get("/users/:id")]
+#[get("/users/{id}")]
 async fn handler_with_path_param(
     _path: gearbox_rs_core::Path<String>,
     _service: Arc<TestService>,
@@ -150,7 +150,7 @@ fn test_path_param_route_registered() {
     let routes: Vec<_> = inventory::iter::<RouteRegistration>().collect();
     let paths: Vec<&str> = routes.iter().map(|r| r.path).collect();
 
-    assert!(paths.contains(&"/users/:id"));
+    assert!(paths.contains(&"/users/{id}"));
 }
 
 // === No parameters test ===

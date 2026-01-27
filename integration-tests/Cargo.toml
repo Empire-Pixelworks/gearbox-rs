@@ -1,0 +1,34 @@
+[package]
+name = "integration-tests"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "integration_tests"
+path = "src/lib.rs"
+
+[[bin]]
+name = "integration-tests"
+path = "src/main.rs"
+
+[dependencies]
+gearbox-rs-core = { path = "../core" }
+gearbox-rs-macros = { path = "../macros" }
+gearbox-rs-postgres = { path = "../pg" }
+tokio = { workspace = true, features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+tracing-subscriber = "0.3"
+dashmap = { workspace = true }
+uuid = { version = "1.0", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+axum = { workspace = true }
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres"] }
+serde_json = "1.0"
+
+[dev-dependencies]
+postgresql_embedded = { version = "0.20", features = ["bundled"] }
+reqwest = { version = "0.12", features = ["json"] }
+
+#[[test]]
+#name = "integration_tests"
+#path = "tests/integration_tests.rs"

@@ -51,7 +51,7 @@ impl Greeter {
 }
 
 // Define a route that uses the service
-#[get("/hello/:name")]
+#[get("/hello/{name}")]
 async fn hello(
     path: Path<String>,
     greeter: Arc<Greeter>,
@@ -113,7 +113,7 @@ pub struct DbConfig {
 Create a `config.toml`:
 
 ```toml
-[gearbox-app]
+[gearbox_app]
 http-port = 8080
 log-level = "info"
 
@@ -154,7 +154,7 @@ async fn create_user(
     (StatusCode::CREATED, Json(user))
 }
 
-#[get("/users/:id")]
+#[get("/users/{id}")]
 async fn get_user(
     path: Path<String>,
     repo: Arc<UserRepo>,

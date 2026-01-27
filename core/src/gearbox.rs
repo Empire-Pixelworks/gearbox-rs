@@ -21,16 +21,16 @@ impl Gearbox {
     /// 3. Builds all Cogs in dependency order
     /// 4. Returns a ready-to-run Gearbox instance
     pub async fn crank() -> Result<Self, Error> {
-        // Load configuration from file and environment
         let config = Config::load()
             .map_err(|e| Error::ServerError(format!("Config error: {}", e)))?;
 
-        // Initialize tracing based on config (RUST_LOG env takes precedence)
         let log_level = std::env::var("RUST_LOG")
             .unwrap_or_else(|_| config.app().log_level.clone());
         let _ = tracing_subscriber::fmt()
             .with_env_filter(tracing_subscriber::EnvFilter::new(&log_level))
             .try_init();
+
+        println!("{:?}", config.app());
 
         let hub = Arc::new(Hub::new(config));
 
@@ -96,8 +96,6 @@ impl Gearbox {
     }
 
     /// Start the HTTP server.
-    ///
-    /// Uses the port from `GearboxAppConfig.http_port` (default: 8080).
     pub async fn ignite(self) -> Result<(), Error> {
         let port = self.hub.app_config().http_port;
 

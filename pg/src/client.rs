@@ -13,6 +13,7 @@ pub struct PgClient {
 
 async fn load_pool(hub: Arc<Hub>) -> Result<Arc<PgPool>, Error> {
     let config = hub.config.get::<PgConfig>();
+    println!("config: {:?}", config);
     Ok(
         Arc::new(
             init_schema_pool(&config).await

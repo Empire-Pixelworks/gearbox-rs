@@ -1,0 +1,5 @@
+[gearbox_app]
+http-port = 8090
+
+[postgres]
+schema_name = "testing"
