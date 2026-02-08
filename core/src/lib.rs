@@ -8,12 +8,14 @@ mod gearbox;
 mod hub;
 mod registry;
 mod route;
+mod store;
 
 pub use async_trait::async_trait;
 pub use inventory;
 
 pub use cog::Cog;
 pub use config::{deserialize_config, CogConfig, Config, ConfigMeta, GearboxAppConfig};
+pub use store::{Store, entity::Entity, query::{QueryBuilder, parse}, types::{Page, StoreError}, value::Value};
 pub use error::Error;
 pub use extract::Inject;
 pub use factory::{BoxFuture, CogFactory};
