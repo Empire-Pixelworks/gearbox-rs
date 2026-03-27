@@ -96,7 +96,7 @@ impl Config {
         self.configs
             .get(&TypeId::of::<C>())
             .and_then(|v| v.value().downcast_ref::<C>().cloned())
-            .expect(&format!("Config for {} not found!", type_name::<C>()))
+            .unwrap_or_else(|| panic!("Config for {} not found!", type_name::<C>()))
     }
 
     pub fn app(&self) -> &GearboxAppConfig {

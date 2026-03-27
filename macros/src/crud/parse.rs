@@ -42,6 +42,7 @@ impl CrudFieldInfo {
 
 /// Struct-level CRUD configuration.
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct CrudConfig {
     /// Base path for REST endpoints (e.g., "/users").
     pub path: String,
@@ -53,16 +54,6 @@ pub struct CrudConfig {
     pub skip_delete: bool,
 }
 
-impl Default for CrudConfig {
-    fn default() -> Self {
-        CrudConfig {
-            path: String::new(),
-            read_only: false,
-            skip_create: false,
-            skip_delete: false,
-        }
-    }
-}
 
 /// Parsed entity information for CRUD generation.
 #[derive(Debug)]
@@ -156,11 +147,10 @@ fn parse_crud_config(attrs: &[Attribute]) -> Result<CrudConfig, Error> {
 
 fn parse_table_name(attrs: &[Attribute]) -> Option<String> {
     for attr in attrs {
-        if attr.path().is_ident("table") {
-            if let Ok(lit) = attr.parse_args::<syn::LitStr>() {
+        if attr.path().is_ident("table")
+            && let Ok(lit) = attr.parse_args::<syn::LitStr>() {
                 return Some(lit.value());
             }
-        }
     }
     None
 }
@@ -212,9 +202,10 @@ pub fn parse_crud_entity(input: &DeriveInput) -> Result<CrudEntityInfo, Error> {
     let name = input.ident.clone();
 
     // Parse table name (required - comes from PgEntity)
-    let table = parse_table_name(&input.attrs).ok_or(
-        Error::new_spanned(input, "#[table(\"name\")] attribute is required for Crud derive")
-    )?;
+    let table = parse_table_name(&input.attrs).ok_or(Error::new_spanned(
+        input,
+        "#[table(\"name\")] attribute is required for Crud derive",
+    ))?;
 
     // Parse crud config
     let config = parse_crud_config(&input.attrs)?;

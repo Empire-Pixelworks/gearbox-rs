@@ -142,7 +142,7 @@ checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
 
 [[package]]
 name = "basic-cog"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "axum",
  "dashmap",
@@ -619,7 +619,7 @@ dependencies = [
 
 [[package]]
 name = "gearbox-rs"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "gearbox-rs-core",
  "gearbox-rs-macros",
@@ -628,7 +628,7 @@ dependencies = [
 
 [[package]]
 name = "gearbox-rs-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "axum",
@@ -647,7 +647,7 @@ dependencies = [
 
 [[package]]
 name = "gearbox-rs-macros"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "axum",
  "gearbox-rs-core",
@@ -664,7 +664,7 @@ dependencies = [
 
 [[package]]
 name = "gearbox-rs-postgres"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "gearbox-rs-core",
@@ -1075,7 +1075,7 @@ dependencies = [
 
 [[package]]
 name = "integration-tests"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "axum",
  "chrono",
@@ -1509,7 +1509,7 @@ checksum = "7edddbd0b52d732b21ad9a5fab5c704c14cd949e5e9a1ec5929a24fded1b904c"
 
 [[package]]
 name = "postgres-example"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "axum",
  "chrono",
