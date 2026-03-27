@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, DeriveInput, LitStr};
+use syn::{DeriveInput, LitStr, parse_macro_input};
 
 pub fn generate_cog_config(attr: TokenStream, item: TokenStream) -> TokenStream {
     let config_key = parse_macro_input!(attr as LitStr);

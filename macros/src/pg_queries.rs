@@ -213,8 +213,12 @@ fn validate_placeholders(name: &Ident, params: &[(Ident, Type)], sql: &str) -> s
 /// Generate the return type for a trait method
 fn generate_return_type(return_kind: &ReturnKind) -> TokenStream2 {
     match return_kind {
-        ReturnKind::Option(inner_ty) => quote! { Result<Option<#inner_ty>, gearbox_rs_postgres::PgError> },
-        ReturnKind::Vec(inner_ty) => quote! { Result<Vec<#inner_ty>, gearbox_rs_postgres::PgError> },
+        ReturnKind::Option(inner_ty) => {
+            quote! { Result<Option<#inner_ty>, gearbox_rs_postgres::PgError> }
+        }
+        ReturnKind::Vec(inner_ty) => {
+            quote! { Result<Vec<#inner_ty>, gearbox_rs_postgres::PgError> }
+        }
         ReturnKind::Single(ty) => quote! { Result<#ty, gearbox_rs_postgres::PgError> },
         ReturnKind::Scalar(ty) => quote! { Result<#ty, gearbox_rs_postgres::PgError> },
         ReturnKind::Unit => quote! { Result<(), gearbox_rs_postgres::PgError> },
@@ -338,17 +342,10 @@ fn generate_impl_method(query: &QueryDef) -> TokenStream2 {
 pub fn pg_queries(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as PgQueriesInput);
 
-    let trait_methods: Vec<TokenStream2> = input
-        .queries
-        .iter()
-        .map(generate_trait_method)
-        .collect();
+    let trait_methods: Vec<TokenStream2> =
+        input.queries.iter().map(generate_trait_method).collect();
 
-    let impl_methods: Vec<TokenStream2> = input
-        .queries
-        .iter()
-        .map(generate_impl_method)
-        .collect();
+    let impl_methods: Vec<TokenStream2> = input.queries.iter().map(generate_impl_method).collect();
 
     let expanded = quote! {
         pub trait PgQueries {

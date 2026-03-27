@@ -128,7 +128,9 @@ fn test_method_signatures_compile() {
 
         let _: Result<Option<User>, _> = client.find_user_by_id("123").await;
         let _: Result<Vec<User>, _> = client.find_users_by_status("active").await;
-        let _: Result<Vec<User>, _> = client.find_users_by_status_and_role("active", "admin").await;
+        let _: Result<Vec<User>, _> = client
+            .find_users_by_status_and_role("active", "admin")
+            .await;
         let _: Result<Option<UserSummary>, _> = client.get_user_summary("123").await;
         let _: Result<User, _> = client.get_user_or_fail("123").await;
         let _: Result<i64, _> = client.count_users().await;
@@ -155,7 +157,9 @@ fn test_multiple_params_query() {
     #[allow(dead_code)]
     async fn _use_it(client: &gearbox_rs_postgres::PgClient) {
         use crate::PgQueries;
-        let _ = client.find_users_by_status_and_role("active", "admin").await;
+        let _ = client
+            .find_users_by_status_and_role("active", "admin")
+            .await;
         let _ = client.log_user_action("user_123", "logged_in").await;
     }
 }

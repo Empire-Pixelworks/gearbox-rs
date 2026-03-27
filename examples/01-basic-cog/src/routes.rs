@@ -1,8 +1,8 @@
-use axum::extract::Path;
+use crate::service::{CreateUser, UserService};
 use axum::Json;
+use axum::extract::Path;
 use gearbox_rs_core::IntoResponse;
 use gearbox_rs_macros::{get, post};
-use crate::service::{CreateUser, UserService};
 
 #[get("/users")]
 async fn list_users(service: Arc<UserService>) -> impl IntoResponse {

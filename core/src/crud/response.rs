@@ -7,7 +7,6 @@ use serde::Serialize;
 /// This wrapper includes metadata about the pagination state along with
 /// the actual data items.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct PagedResponse<T> {
     /// The data items for the current page.
     pub data: Vec<T>,

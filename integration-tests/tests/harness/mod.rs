@@ -47,11 +47,7 @@ impl TestContext {
         let pg_settings = pg.settings();
         let db_url = format!(
             "postgres://{}:{}@{}:{}/{}",
-            pg_settings.username,
-            pg_settings.password,
-            pg_settings.host,
-            pg_settings.port,
-            db_name
+            pg_settings.username, pg_settings.password, pg_settings.host, pg_settings.port, db_name
         );
 
         // Run migrations
@@ -139,7 +135,10 @@ async fn run_migrations(db_url: &str) {
     pool.close().await;
 }
 
-async fn run_server(_port: u16, _db_url: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn run_server(
+    _port: u16,
+    _db_url: &str,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     use gearbox_rs_core::Gearbox;
 
     // The Gearbox::crank() will read from env vars we set

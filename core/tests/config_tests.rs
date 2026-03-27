@@ -22,7 +22,10 @@ impl EnvGuard {
         let prev = env::var(key).ok();
         // SAFETY: Tests run single-threaded via --test-threads=1
         unsafe { env::set_var(key, value) };
-        Self { key: key.to_string(), prev }
+        Self {
+            key: key.to_string(),
+            prev,
+        }
     }
 }
 
@@ -43,7 +46,8 @@ fn setup_config_file(toml_content: &str) -> (TempDir, EnvGuard) {
     let dir = TempDir::new().expect("Failed to create temp dir");
     let path = dir.path().join("config.toml");
     let mut file = fs::File::create(&path).expect("Failed to create config file");
-    file.write_all(toml_content.as_bytes()).expect("Failed to write config");
+    file.write_all(toml_content.as_bytes())
+        .expect("Failed to write config");
     drop(file);
     let guard = EnvGuard::set("CONFIG_LOCATION", path.to_str().unwrap());
     (dir, guard)

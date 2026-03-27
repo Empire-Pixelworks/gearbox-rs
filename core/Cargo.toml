@@ -12,7 +12,6 @@ readme = "../README.md"
 
 [features]
 default = []
-openapi = ["utoipa"]
 
 [dependencies]
 async-trait = { workspace = true }
@@ -27,8 +26,6 @@ serde = { version = "1", features = ["derive"] }
 config = { version = "0.15", default-features = false, features = ["toml"] }
 serde_json = "1.0"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-utoipa = { workspace = true, optional = true }
-uuid = "1.20"
 
 [dev-dependencies]
 tempfile = "3"

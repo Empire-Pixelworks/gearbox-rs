@@ -1,9 +1,7 @@
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote};
-use syn::{
-    parse_macro_input, FnArg, GenericArgument, ItemFn, LitStr, Pat, PathArguments, Type,
-};
+use syn::{FnArg, GenericArgument, ItemFn, LitStr, Pat, PathArguments, Type, parse_macro_input};
 
 pub fn generate_route(method: &str, attr: TokenStream, item: TokenStream) -> TokenStream {
     let path = parse_macro_input!(attr as LitStr);
@@ -19,12 +17,8 @@ pub fn generate_route(method: &str, attr: TokenStream, item: TokenStream) -> Tok
     let method_lower = method.to_lowercase();
     let method_ident = format_ident!("{}", method_lower);
 
-    let transformed_params: Vec<TokenStream2> = input
-        .sig
-        .inputs
-        .iter()
-        .map(transform_param)
-        .collect();
+    let transformed_params: Vec<TokenStream2> =
+        input.sig.inputs.iter().map(transform_param).collect();
 
     quote! {
         #vis #asyncness fn #handler_name(
@@ -68,10 +62,11 @@ fn transform_param(arg: &FnArg) -> TokenStream2 {
 fn extract_arc_inner(ty: &Type) -> Option<&Type> {
     if let Type::Path(type_path) = ty
         && let Some(segment) = type_path.path.segments.last()
-            && segment.ident == "Arc"
-                && let PathArguments::AngleBracketed(args) = &segment.arguments
-                    && let Some(GenericArgument::Type(inner)) = args.args.first() {
-                        return Some(inner);
-                    }
+        && segment.ident == "Arc"
+        && let PathArguments::AngleBracketed(args) = &segment.arguments
+        && let Some(GenericArgument::Type(inner)) = args.args.first()
+    {
+        return Some(inner);
+    }
     None
 }

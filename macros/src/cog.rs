@@ -2,7 +2,7 @@ use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote};
 use syn::{
-    parse_macro_input, Data, DeriveInput, Field, Fields, GenericArgument, PathArguments, Type,
+    Data, DeriveInput, Field, Fields, GenericArgument, PathArguments, Type, parse_macro_input,
     punctuated::Punctuated, token::Comma,
 };
 
@@ -152,7 +152,8 @@ fn parse_field(field: &Field) -> ParsedField {
                 panic!(
                     "#[default] on field '{}' requires a function path. \
                     Expected: #[default(my_function)] where my_function: fn() -> {}",
-                    name, quote!(#ty)
+                    name,
+                    quote!(#ty)
                 )
             }))
         } else {
@@ -167,7 +168,8 @@ fn parse_field(field: &Field) -> ParsedField {
                     "#[default_async] on field '{}' requires a function path. \
                     Expected: #[default_async(my_function)] where my_function: \
                     async fn(&Arc<Hub>) -> Result<{}, Error>",
-                    name, quote!(#ty)
+                    name,
+                    quote!(#ty)
                 )
             }))
         } else {
@@ -190,9 +192,8 @@ fn parse_field(field: &Field) -> ParsedField {
     }
 
     let kind = if has_inject {
-        let inner = extract_arc_inner(&ty).unwrap_or_else(|| {
-            panic!("#[inject] field '{}' must be Arc<T>", name)
-        });
+        let inner = extract_arc_inner(&ty)
+            .unwrap_or_else(|| panic!("#[inject] field '{}' must be Arc<T>", name));
         FieldKind::Inject(inner)
     } else if has_config {
         FieldKind::Config
@@ -210,11 +211,12 @@ fn parse_field(field: &Field) -> ParsedField {
 fn extract_arc_inner(ty: &Type) -> Option<Type> {
     if let Type::Path(type_path) = ty
         && let Some(segment) = type_path.path.segments.last()
-            && segment.ident == "Arc"
-                && let PathArguments::AngleBracketed(args) = &segment.arguments
-                    && let Some(GenericArgument::Type(inner)) = args.args.first() {
-                        return Some(inner.clone());
-                    }
+        && segment.ident == "Arc"
+        && let PathArguments::AngleBracketed(args) = &segment.arguments
+        && let Some(GenericArgument::Type(inner)) = args.args.first()
+    {
+        return Some(inner.clone());
+    }
     None
 }
 

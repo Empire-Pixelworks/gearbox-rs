@@ -2,7 +2,7 @@
 //!
 //! These tests spin up an embedded PostgreSQL instance and make real HTTP requests.
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 mod harness;
 use harness::TestContext;
@@ -81,40 +81,6 @@ async fn test_list_users_with_pagination() {
     let body: Value = response.json().await.unwrap();
     assert_eq!(body["data"].as_array().unwrap().len(), 2);
     assert_eq!(body["total"], 5);
-}
-
-#[tokio::test]
-async fn test_search_users_by_name() {
-    let ctx = TestContext::setup().await;
-
-    // Create users with different names
-    for name in ["Alice Smith", "Bob Jones", "Alice Johnson"] {
-        ctx.client
-            .post(ctx.url("/users"))
-            .json(&json!({
-                "name": name,
-                "email": format!("{}@example.com", name.replace(' ', ".").to_lowercase()),
-                "password_hash": "hash",
-                "role": "user",
-                "active": true
-            }))
-            .send()
-            .await
-            .unwrap();
-    }
-
-    // Search for users with "Alice" in name
-    let response = ctx
-        .client
-        .get(ctx.url("/users?name_like=Alice"))
-        .send()
-        .await
-        .unwrap();
-
-    assert_eq!(response.status(), 200);
-
-    let body: Value = response.json().await.unwrap();
-    assert_eq!(body["data"].as_array().unwrap().len(), 2);
 }
 
 #[tokio::test]
@@ -237,7 +203,11 @@ async fn test_user_stats() {
     let ctx = TestContext::setup().await;
 
     // Create users with different roles
-    for (name, role) in [("Admin 1", "admin"), ("Admin 2", "admin"), ("User 1", "user")] {
+    for (name, role) in [
+        ("Admin 1", "admin"),
+        ("Admin 2", "admin"),
+        ("User 1", "user"),
+    ] {
         ctx.client
             .post(ctx.url("/users"))
             .json(&json!({
@@ -252,7 +222,12 @@ async fn test_user_stats() {
             .unwrap();
     }
 
-    let response = ctx.client.get(ctx.url("/stats/users")).send().await.unwrap();
+    let response = ctx
+        .client
+        .get(ctx.url("/stats/users"))
+        .send()
+        .await
+        .unwrap();
 
     assert_eq!(response.status(), 200);
 

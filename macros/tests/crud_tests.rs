@@ -11,10 +11,8 @@ pub struct User {
     #[auto_generated]
     pub id: String,
 
-    #[searchable]
     pub name: String,
 
-    #[searchable(eq)]
     pub email: String,
 
     #[writeonly]
@@ -35,14 +33,13 @@ pub struct AuditLog {
     #[auto_generated]
     pub id: String,
 
-    #[searchable]
     pub action: String,
 
     #[readonly]
     pub timestamp: i64,
 }
 
-// Entity with numeric searchable fields
+// Entity with numeric fields
 #[derive(Clone, PgEntity, Crud)]
 #[table("products")]
 pub struct Product {
@@ -50,13 +47,10 @@ pub struct Product {
     #[auto_generated]
     pub id: String,
 
-    #[searchable]
     pub name: String,
 
-    #[searchable]
     pub price: i64,
 
-    #[searchable]
     pub stock: i32,
 }
 
@@ -86,18 +80,13 @@ fn test_user_update_dto_generated() {
 
 #[test]
 fn test_user_query_dto_generated() {
-    // UserQuery should have pagination fields and searchable fields with operators
+    // UserQuery should have pagination fields only
     let query = UserQuery {
         limit: Some(10),
         offset: Some(0),
-        sort: Some("-created_at".to_string()),
-        name: Some("John".to_string()),
-        name_like: Some("John".to_string()),
-        name_starts_with: Some("J".to_string()),
-        email: Some("john@example.com".to_string()),
     };
     assert_eq!(query.limit, Some(10));
-    assert_eq!(query.name, Some("John".to_string()));
+    assert_eq!(query.offset, Some(0));
 }
 
 #[test]
@@ -130,98 +119,4 @@ fn test_user_create_into_entity() {
     let entity = create.into_entity("generated-id".to_string());
     assert_eq!(entity.id, "generated-id");
     assert_eq!(entity.name, "Test User");
-}
-
-#[test]
-fn test_product_query_numeric_operators() {
-    // Product should have numeric operators for price and stock
-    let query = ProductQuery {
-        limit: None,
-        offset: None,
-        sort: None,
-        name: None,
-        name_like: None,
-        name_starts_with: None,
-        price: None,
-        price_gt: Some(100),
-        price_gte: None,
-        price_lt: Some(1000),
-        price_lte: None,
-        stock: None,
-        stock_gt: None,
-        stock_gte: Some(10),
-        stock_lt: None,
-        stock_lte: None,
-    };
-    assert_eq!(query.price_gt, Some(100));
-    assert_eq!(query.stock_gte, Some(10));
-}
-
-#[test]
-fn test_build_where_clause() {
-    use gearbox_rs_core::crud::BuildWhereClause;
-
-    let query = UserQuery {
-        limit: Some(10),
-        offset: Some(20),
-        sort: Some("-name".to_string()),
-        name: Some("John".to_string()),
-        name_like: None,
-        name_starts_with: None,
-        email: None,
-    };
-
-    let (conditions, params) = query.build_conditions();
-    assert_eq!(conditions.len(), 1);
-    assert!(conditions[0].contains("name"));
-    assert_eq!(params.len(), 1);
-    assert_eq!(params[0], "John");
-
-    let (limit, offset) = query.pagination();
-    assert_eq!(limit, Some(10));
-    assert_eq!(offset, Some(20));
-
-    let sort = query.sort_spec().expect("should have sort");
-    assert_eq!(sort.column, "name");
-    assert_eq!(sort.direction, gearbox_rs_core::crud::SortDirection::Desc);
-}
-
-#[test]
-fn test_build_where_clause_like() {
-    use gearbox_rs_core::crud::BuildWhereClause;
-
-    let query = UserQuery {
-        limit: None,
-        offset: None,
-        sort: None,
-        name: None,
-        name_like: Some("john".to_string()),
-        name_starts_with: None,
-        email: None,
-    };
-
-    let (conditions, params) = query.build_conditions();
-    assert_eq!(conditions.len(), 1);
-    assert!(conditions[0].contains("ILIKE"));
-    assert_eq!(params[0], "%john%"); // LIKE wraps with %
-}
-
-#[test]
-fn test_build_where_clause_starts_with() {
-    use gearbox_rs_core::crud::BuildWhereClause;
-
-    let query = UserQuery {
-        limit: None,
-        offset: None,
-        sort: None,
-        name: None,
-        name_like: None,
-        name_starts_with: Some("J".to_string()),
-        email: None,
-    };
-
-    let (conditions, params) = query.build_conditions();
-    assert_eq!(conditions.len(), 1);
-    assert!(conditions[0].contains("ILIKE"));
-    assert_eq!(params[0], "J%"); // starts_with appends %
 }

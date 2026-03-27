@@ -1,7 +1,7 @@
-use std::sync::Arc;
-use serde::Deserialize;
-use gearbox_rs_macros::cog;
 use crate::repo::{Database, User};
+use gearbox_rs_macros::cog;
+use serde::Deserialize;
+use std::sync::Arc;
 
 #[derive(Deserialize)]
 pub struct CreateUser {

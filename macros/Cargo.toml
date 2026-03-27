@@ -17,6 +17,7 @@ proc-macro = true
 syn = { workspace = true }
 quote = { workspace = true }
 proc-macro2 = { workspace = true }
+log = "0.4.29"
 
 [dev-dependencies]
 gearbox-rs-core = { path = "../core" }

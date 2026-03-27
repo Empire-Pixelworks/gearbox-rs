@@ -57,7 +57,10 @@ fn test_route_registration_exists() {
     assert!(paths.contains(&"/test-get"), "GET route not registered");
     assert!(paths.contains(&"/test-post"), "POST route not registered");
     assert!(paths.contains(&"/test-put"), "PUT route not registered");
-    assert!(paths.contains(&"/test-delete"), "DELETE route not registered");
+    assert!(
+        paths.contains(&"/test-delete"),
+        "DELETE route not registered"
+    );
     assert!(paths.contains(&"/test-patch"), "PATCH route not registered");
 }
 

@@ -75,21 +75,6 @@ fn generate_list_handler(entity: &CrudEntityInfo, path: &str) -> (TokenStream2, 
     let handler_name = format_ident!("__crud_{}_list", snake_name);
     let query_name = format_ident!("{}Query", name);
     let response_name = format_ident!("{}Response", name);
-    let table = &entity.table;
-
-    let columns: Vec<String> = entity
-        .db_fields()
-        .iter()
-        .map(|f| f.ident.to_string())
-        .collect();
-    let columns_str = columns.join(", ");
-
-    let pk_columns: Vec<String> = entity
-        .pk_fields()
-        .iter()
-        .map(|f| f.ident.to_string())
-        .collect();
-    let default_order = pk_columns.join(", ");
 
     let error_struct = error_json();
 
@@ -98,34 +83,14 @@ fn generate_list_handler(entity: &CrudEntityInfo, path: &str) -> (TokenStream2, 
             gearbox_rs_core::Inject(db): gearbox_rs_core::Inject<gearbox_rs_postgres::PgClient>,
             gearbox_rs_core::Query(query): gearbox_rs_core::Query<#query_name>,
         ) -> axum::response::Response {
-            use gearbox_rs_core::crud::BuildWhereClause;
             use axum::response::IntoResponse;
 
             #error_struct
 
-            let (conditions, _params) = query.build_conditions();
-            let (limit, offset) = query.pagination();
+            let limit = query.limit.unwrap_or(100);
+            let offset = query.offset.unwrap_or(0);
 
-            // Build the query
-            let where_clause = if conditions.is_empty() {
-                String::new()
-            } else {
-                format!("WHERE {}", conditions.join(" AND "))
-            };
-
-            let order_by = query.sort_spec()
-                .map(|s| format!("ORDER BY {}", s.to_sql()))
-                .unwrap_or_else(|| format!("ORDER BY {}", #default_order));
-
-            let limit_clause = limit.map(|l| format!("LIMIT {}", l)).unwrap_or_default();
-            let offset_clause = offset.map(|o| format!("OFFSET {}", o)).unwrap_or_default();
-
-            // Count query
-            let count_sql = format!("SELECT COUNT(*) FROM {} {}", #table, where_clause);
-            let total: i64 = match gearbox_rs_postgres::query_scalar(&count_sql)
-                .fetch_one(db.pool.as_ref())
-                .await
-            {
+            let total: i64 = match <gearbox_rs_postgres::PgClient as gearbox_rs_postgres::PgRepository<#name>>::count(&*db).await {
                 Ok(count) => count,
                 Err(e) => return (
                     axum::http::StatusCode::INTERNAL_SERVER_ERROR,
@@ -133,16 +98,7 @@ fn generate_list_handler(entity: &CrudEntityInfo, path: &str) -> (TokenStream2, 
                 ).into_response(),
             };
 
-            // Data query
-            let data_sql = format!(
-                "SELECT {} FROM {} {} {} {} {}",
-                #columns_str, #table, where_clause, order_by, limit_clause, offset_clause
-            );
-
-            let rows = match gearbox_rs_postgres::query(&data_sql)
-                .fetch_all(db.pool.as_ref())
-                .await
-            {
+            let rows = match <gearbox_rs_postgres::PgClient as gearbox_rs_postgres::PgRepository<#name>>::find_page(&*db, limit, offset).await {
                 Ok(rows) => rows,
                 Err(e) => return (
                     axum::http::StatusCode::INTERNAL_SERVER_ERROR,
@@ -152,13 +108,10 @@ fn generate_list_handler(entity: &CrudEntityInfo, path: &str) -> (TokenStream2, 
 
             let data: Vec<#response_name> = rows
                 .into_iter()
-                .map(|row| {
-                    let entity = <#name as gearbox_rs_postgres::PgEntity>::from_row(row);
-                    #response_name::from(entity)
-                })
+                .map(#response_name::from)
                 .collect();
 
-            let response = gearbox_rs_core::crud::PagedResponse::new(data, total, limit, offset);
+            let response = gearbox_rs_core::crud::PagedResponse::new(data, total, Some(limit), Some(offset));
             gearbox_rs_core::Json(response).into_response()
         }
     };

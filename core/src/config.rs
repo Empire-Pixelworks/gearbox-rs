@@ -1,9 +1,9 @@
 use config::{Config as ConfigLoader, Environment, File};
 use dashmap::DashMap;
-use serde::de::DeserializeOwned;
 use serde::Deserialize;
+use serde::de::DeserializeOwned;
 use serde_json::Value;
-use std::any::{type_name, Any, TypeId};
+use std::any::{Any, TypeId, type_name};
 use std::sync::Arc;
 
 /// Trait for configuration structs.
@@ -47,8 +47,8 @@ pub struct Config {
 
 impl Config {
     pub fn load() -> Result<Self, config::ConfigError> {
-        let config_path = std::env::var("CONFIG_LOCATION")
-            .unwrap_or_else(|_| "./config.toml".to_string());
+        let config_path =
+            std::env::var("CONFIG_LOCATION").unwrap_or_else(|_| "./config.toml".to_string());
 
         let mut builder = ConfigLoader::builder();
 
@@ -79,7 +79,9 @@ impl Config {
 
         let configs = DashMap::new();
         for meta in inventory::iter::<ConfigMeta> {
-            let section = raw.get(meta.key).cloned()
+            let section = raw
+                .get(meta.key)
+                .cloned()
                 .unwrap_or_else(|| Value::Object(Default::default()));
             println!("Section {:?}", section);
             let config = (meta.deserialize_fn)(&section);

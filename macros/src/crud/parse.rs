@@ -1,121 +1,7 @@
 //! Attribute parsing for the Crud derive macro.
 
-use syn::{Attribute, Data, DeriveInput, Fields, Ident, Meta, MetaList, Type};
-
-/// Operators that can be used for filtering on searchable fields.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SearchOperator {
-    /// Exact match (=)
-    Eq,
-    /// ILIKE pattern match
-    Like,
-    /// ILIKE prefix match (value%)
-    StartsWith,
-    /// Greater than (>)
-    Gt,
-    /// Greater than or equal (>=)
-    Gte,
-    /// Less than (<)
-    Lt,
-    /// Less than or equal (<=)
-    Lte,
-}
-
-impl SearchOperator {
-    /// Get the suffix for this operator in query params.
-    pub fn suffix(&self) -> &'static str {
-        match self {
-            SearchOperator::Eq => "",
-            SearchOperator::Like => "_like",
-            SearchOperator::StartsWith => "_starts_with",
-            SearchOperator::Gt => "_gt",
-            SearchOperator::Gte => "_gte",
-            SearchOperator::Lt => "_lt",
-            SearchOperator::Lte => "_lte",
-        }
-    }
-
-    /// Get the SQL operator for this search operator.
-    pub fn sql_operator(&self) -> &'static str {
-        match self {
-            SearchOperator::Eq => "=",
-            SearchOperator::Like => "ILIKE",
-            SearchOperator::StartsWith => "ILIKE",
-            SearchOperator::Gt => ">",
-            SearchOperator::Gte => ">=",
-            SearchOperator::Lt => "<",
-            SearchOperator::Lte => "<=",
-        }
-    }
-
-    /// Whether this operator requires value transformation (e.g., adding %).
-    #[allow(dead_code)]
-    pub fn transform_value(&self) -> Option<&'static str> {
-        match self {
-            SearchOperator::Like => Some("'%' || {} || '%'"),
-            SearchOperator::StartsWith => Some("{} || '%'"),
-            _ => None,
-        }
-    }
-}
-
-/// Information about a searchable field's operators.
-#[derive(Debug, Clone)]
-pub struct SearchableInfo {
-    pub operators: Vec<SearchOperator>,
-}
-
-impl SearchableInfo {
-    /// Get default operators based on field type.
-    pub fn default_for_type(ty: &Type) -> Self {
-        let type_str = quote::quote!(#ty).to_string();
-        let operators = match type_str.as_str() {
-            "String" | "& str" | "std :: string :: String" => {
-                vec![SearchOperator::Eq, SearchOperator::Like, SearchOperator::StartsWith]
-            }
-            "i32" | "i64" | "i16" | "i8" | "u32" | "u64" | "u16" | "u8" | "f32" | "f64" => {
-                vec![
-                    SearchOperator::Eq,
-                    SearchOperator::Gt,
-                    SearchOperator::Gte,
-                    SearchOperator::Lt,
-                    SearchOperator::Lte,
-                ]
-            }
-            s if s.contains("DateTime") || s.contains("NaiveDate") || s.contains("NaiveDateTime") => {
-                vec![
-                    SearchOperator::Eq,
-                    SearchOperator::Gt,
-                    SearchOperator::Gte,
-                    SearchOperator::Lt,
-                    SearchOperator::Lte,
-                ]
-            }
-            "bool" => vec![SearchOperator::Eq],
-            s if s.contains("Uuid") => vec![SearchOperator::Eq],
-            _ => vec![SearchOperator::Eq],
-        };
-        SearchableInfo { operators }
-    }
-
-    /// Parse operators from attribute arguments like `#[searchable(eq, like)]`.
-    pub fn from_operators(ops: &[&str]) -> Self {
-        let operators = ops
-            .iter()
-            .filter_map(|op| match *op {
-                "eq" => Some(SearchOperator::Eq),
-                "like" => Some(SearchOperator::Like),
-                "starts_with" => Some(SearchOperator::StartsWith),
-                "gt" => Some(SearchOperator::Gt),
-                "gte" => Some(SearchOperator::Gte),
-                "lt" => Some(SearchOperator::Lt),
-                "lte" => Some(SearchOperator::Lte),
-                _ => None,
-            })
-            .collect();
-        SearchableInfo { operators }
-    }
-}
+use crate::crud::utils::{pluralize, to_snake_case};
+use syn::{Attribute, Data, DeriveInput, Error, Fields, Ident, LitStr, Type};
 
 /// Information about a single field in the entity.
 #[derive(Debug, Clone)]
@@ -132,8 +18,6 @@ pub struct CrudFieldInfo {
     pub writeonly: bool,
     /// Field should be skipped entirely from CRUD operations.
     pub skip: bool,
-    /// Field is searchable with specific operators.
-    pub searchable: Option<SearchableInfo>,
     /// Optional pg_type override for SQL binding.
     #[allow(dead_code)]
     pub pg_type: Option<Type>,
@@ -202,24 +86,25 @@ impl CrudEntityInfo {
 
     /// Get fields for Create DTO.
     pub fn create_fields(&self) -> Vec<&CrudFieldInfo> {
-        self.fields.iter().filter(|f| f.include_in_create()).collect()
+        self.fields
+            .iter()
+            .filter(|f| f.include_in_create())
+            .collect()
     }
 
     /// Get fields for Update DTO.
     pub fn update_fields(&self) -> Vec<&CrudFieldInfo> {
-        self.fields.iter().filter(|f| f.include_in_update()).collect()
+        self.fields
+            .iter()
+            .filter(|f| f.include_in_update())
+            .collect()
     }
 
     /// Get fields for Response DTO.
     pub fn response_fields(&self) -> Vec<&CrudFieldInfo> {
-        self.fields.iter().filter(|f| f.include_in_response()).collect()
-    }
-
-    /// Get searchable fields.
-    pub fn searchable_fields(&self) -> Vec<&CrudFieldInfo> {
         self.fields
             .iter()
-            .filter(|f| f.searchable.is_some() && !f.skip)
+            .filter(|f| f.include_in_response())
             .collect()
     }
 
@@ -243,51 +128,32 @@ impl CrudEntityInfo {
     }
 }
 
-/// Parse the #[crud(...)] attribute from a struct.
-fn parse_crud_config(attrs: &[Attribute]) -> CrudConfig {
+fn parse_crud_config(attrs: &[Attribute]) -> Result<CrudConfig, Error> {
     let mut config = CrudConfig::default();
 
     for attr in attrs {
         if !attr.path().is_ident("crud") {
             continue;
         }
-
-        if let Meta::List(MetaList { tokens, .. }) = &attr.meta {
-            let tokens_str = tokens.to_string();
-            for part in tokens_str.split(',') {
-                let part = part.trim();
-                if part.starts_with("path") {
-                    if let Some(value) = extract_string_value(part) {
-                        config.path = value;
-                    }
-                } else if part == "read_only" {
-                    config.read_only = true;
-                } else if part == "skip_create" {
-                    config.skip_create = true;
-                } else if part == "skip_delete" {
-                    config.skip_delete = true;
-                }
-            }
-        }
+        attr.parse_nested_meta(|meta| {
+            let path = &meta.path;
+            if path.is_ident("path") {
+                let crud_path = meta.value()?.parse::<LitStr>()?.value();
+                config.path = crud_path;
+            } else if path.is_ident("read_only") {
+                config.read_only = true;
+            } else if path.is_ident("skip_create") {
+                config.skip_create = true;
+            } else if path.is_ident("skip_delete") {
+                config.skip_delete = true;
+            };
+            Ok(())
+        })?;
     }
 
-    config
+    Ok(config)
 }
 
-/// Extract a string value from an attribute part like `path = "/users"`.
-fn extract_string_value(part: &str) -> Option<String> {
-    let parts: Vec<&str> = part.splitn(2, '=').collect();
-    if parts.len() == 2 {
-        let value = parts[1].trim();
-        // Remove quotes
-        if value.starts_with('"') && value.ends_with('"') {
-            return Some(value[1..value.len() - 1].to_string());
-        }
-    }
-    None
-}
-
-/// Parse the #[table("name")] attribute.
 fn parse_table_name(attrs: &[Attribute]) -> Option<String> {
     for attr in attrs {
         if attr.path().is_ident("table") {
@@ -299,31 +165,11 @@ fn parse_table_name(attrs: &[Attribute]) -> Option<String> {
     None
 }
 
-/// Parse searchable attribute, optionally with explicit operators.
-fn parse_searchable(attr: &Attribute, field_ty: &Type) -> Option<SearchableInfo> {
-    if !attr.path().is_ident("searchable") {
-        return None;
-    }
-
-    // Check if it has arguments
-    match &attr.meta {
-        Meta::Path(_) => {
-            // No arguments, use default operators for type
-            Some(SearchableInfo::default_for_type(field_ty))
-        }
-        Meta::List(MetaList { tokens, .. }) => {
-            // Has arguments like `#[searchable(eq, like)]`
-            let tokens_str = tokens.to_string();
-            let ops: Vec<&str> = tokens_str.split(',').map(|s| s.trim()).collect();
-            Some(SearchableInfo::from_operators(&ops))
-        }
-        _ => Some(SearchableInfo::default_for_type(field_ty)),
-    }
-}
-
-/// Parse a single field's attributes.
-fn parse_field_info(field: &syn::Field) -> CrudFieldInfo {
-    let ident = field.ident.clone().expect("Named field required");
+fn parse_field_info(field: &syn::Field) -> Result<CrudFieldInfo, Error> {
+    let ident = field
+        .ident
+        .clone()
+        .ok_or(syn::Error::new_spanned(field, "named field required"))?;
     let ty = field.ty.clone();
 
     let mut is_primary_key = false;
@@ -331,7 +177,6 @@ fn parse_field_info(field: &syn::Field) -> CrudFieldInfo {
     let mut readonly = false;
     let mut writeonly = false;
     let mut skip = false;
-    let mut searchable = None;
     let mut pg_type = None;
 
     for attr in &field.attrs {
@@ -345,14 +190,12 @@ fn parse_field_info(field: &syn::Field) -> CrudFieldInfo {
             writeonly = true;
         } else if attr.path().is_ident("skip") {
             skip = true;
-        } else if attr.path().is_ident("searchable") {
-            searchable = parse_searchable(attr, &ty);
         } else if attr.path().is_ident("pg_type") {
             pg_type = attr.parse_args::<Type>().ok();
         }
     }
 
-    CrudFieldInfo {
+    Ok(CrudFieldInfo {
         ident,
         ty,
         is_primary_key,
@@ -360,64 +203,47 @@ fn parse_field_info(field: &syn::Field) -> CrudFieldInfo {
         readonly,
         writeonly,
         skip,
-        searchable,
         pg_type,
-    }
+    })
 }
 
 /// Parse the entire entity from DeriveInput.
-pub fn parse_crud_entity(input: &DeriveInput) -> CrudEntityInfo {
+pub fn parse_crud_entity(input: &DeriveInput) -> Result<CrudEntityInfo, Error> {
     let name = input.ident.clone();
 
     // Parse table name (required - comes from PgEntity)
-    let table = parse_table_name(&input.attrs)
-        .expect("#[table(\"name\")] attribute is required for Crud derive");
+    let table = parse_table_name(&input.attrs).ok_or(
+        Error::new_spanned(input, "#[table(\"name\")] attribute is required for Crud derive")
+    )?;
 
     // Parse crud config
-    let config = parse_crud_config(&input.attrs);
+    let config = parse_crud_config(&input.attrs)?;
 
     // Parse fields
     let fields = match &input.data {
         Data::Struct(data) => match &data.fields {
-            Fields::Named(fields) => fields.named.iter().map(parse_field_info).collect(),
-            _ => panic!("Crud can only be derived for structs with named fields"),
+            Fields::Named(fields) => Ok(fields
+                .named
+                .iter()
+                .map(parse_field_info)
+                .collect::<Result<Vec<_>, _>>()?),
+            _ => Err(Error::new_spanned(
+                input,
+                "Crud can only be derived for structs with named fields",
+            )),
         },
-        _ => panic!("Crud can only be derived for structs"),
-    };
+        _ => Err(Error::new_spanned(
+            input,
+            "Crud can only be derived for structs",
+        )),
+    }?;
 
-    CrudEntityInfo {
+    Ok(CrudEntityInfo {
         name,
         table,
         config,
         fields,
-    }
-}
-
-/// Convert PascalCase to snake_case.
-fn to_snake_case(s: &str) -> String {
-    let mut result = String::new();
-    for (i, c) in s.chars().enumerate() {
-        if c.is_uppercase() {
-            if i > 0 {
-                result.push('_');
-            }
-            result.push(c.to_lowercase().next().unwrap());
-        } else {
-            result.push(c);
-        }
-    }
-    result
-}
-
-/// Simple pluralization for entity names.
-fn pluralize(s: &str) -> String {
-    if s.ends_with('s') || s.ends_with('x') || s.ends_with("ch") || s.ends_with("sh") {
-        format!("{}es", s)
-    } else if s.ends_with('y') && !s.ends_with("ey") && !s.ends_with("ay") && !s.ends_with("oy") && !s.ends_with("uy") {
-        format!("{}ies", &s[..s.len() - 1])
-    } else {
-        format!("{}s", s)
-    }
+    })
 }
 
 #[cfg(test)]
@@ -437,12 +263,5 @@ mod tests {
         assert_eq!(pluralize("category"), "categories");
         assert_eq!(pluralize("box"), "boxes");
         assert_eq!(pluralize("key"), "keys");
-    }
-
-    #[test]
-    fn test_search_operator_suffix() {
-        assert_eq!(SearchOperator::Eq.suffix(), "");
-        assert_eq!(SearchOperator::Like.suffix(), "_like");
-        assert_eq!(SearchOperator::Gte.suffix(), "_gte");
     }
 }

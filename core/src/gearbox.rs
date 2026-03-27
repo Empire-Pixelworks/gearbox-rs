@@ -21,11 +21,11 @@ impl Gearbox {
     /// 3. Builds all Cogs in dependency order
     /// 4. Returns a ready-to-run Gearbox instance
     pub async fn crank() -> Result<Self, Error> {
-        let config = Config::load()
-            .map_err(|e| Error::ServerError(format!("Config error: {}", e)))?;
+        let config =
+            Config::load().map_err(|e| Error::ServerError(format!("Config error: {}", e)))?;
 
-        let log_level = std::env::var("RUST_LOG")
-            .unwrap_or_else(|_| config.app().log_level.clone());
+        let log_level =
+            std::env::var("RUST_LOG").unwrap_or_else(|_| config.app().log_level.clone());
         let _ = tracing_subscriber::fmt()
             .with_env_filter(tracing_subscriber::EnvFilter::new(&log_level))
             .try_init();

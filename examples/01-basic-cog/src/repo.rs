@@ -1,6 +1,6 @@
 use dashmap::DashMap;
-use serde::{Deserialize, Serialize};
 use gearbox_rs_macros::cog;
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct User {

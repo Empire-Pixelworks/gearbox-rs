@@ -12,7 +12,8 @@ pub trait CogFactory: Send + Sync + 'static {
     fn type_id(&self) -> TypeId;
     fn type_name(&self) -> &'static str;
     fn deps(&self) -> Vec<TypeId>;
-    fn build(&self, hub: Arc<Hub>) -> BoxFuture<'static, Result<Arc<dyn Any + Send + Sync>, Error>>;
+    fn build(&self, hub: Arc<Hub>)
+    -> BoxFuture<'static, Result<Arc<dyn Any + Send + Sync>, Error>>;
 }
 
 inventory::collect!(&'static dyn CogFactory);

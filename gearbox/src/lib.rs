@@ -30,15 +30,12 @@ pub use gearbox_rs_postgres;
 /// Convenience prelude that re-exports commonly used items.
 pub mod prelude {
     pub use gearbox_rs_core::{
-        Cog, CogConfig, Config, Error, Hub, Inject,
-        IntoResponse, Json, Path, Query,
+        Cog, CogConfig, Config, Error, Hub, Inject, IntoResponse, Json, Path, Query,
     };
-    pub use gearbox_rs_macros::{
-        cog, cog_config, delete, get, gearbox_app, patch, post, put,
-    };
+    pub use gearbox_rs_macros::{cog, cog_config, delete, gearbox_app, get, patch, post, put};
 
     #[cfg(feature = "postgres")]
-    pub use gearbox_rs_macros::{pg_queries, PgEntity};
+    pub use gearbox_rs_macros::{PgEntity, pg_queries};
 
     #[cfg(feature = "postgres")]
     pub use gearbox_rs_postgres::{PgClient, PgConfig, PgError};

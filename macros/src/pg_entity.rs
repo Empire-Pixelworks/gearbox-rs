@@ -1,7 +1,7 @@
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
-use syn::{parse_macro_input, Data, DeriveInput, Fields, Ident, Type};
+use syn::{Data, DeriveInput, Fields, Ident, Type, parse_macro_input};
 
 struct FieldInfo {
     ident: Ident,
@@ -152,11 +152,19 @@ fn generate_from_row(entity: &EntityInfo) -> TokenStream2 {
 }
 
 fn generate_columns(entity: &EntityInfo) -> Vec<String> {
-    entity.db_fields().iter().map(|f| f.ident.to_string()).collect()
+    entity
+        .db_fields()
+        .iter()
+        .map(|f| f.ident.to_string())
+        .collect()
 }
 
 fn generate_pk_columns(entity: &EntityInfo) -> Vec<String> {
-    entity.pk_fields().iter().map(|f| f.ident.to_string()).collect()
+    entity
+        .pk_fields()
+        .iter()
+        .map(|f| f.ident.to_string())
+        .collect()
 }
 
 fn generate_bind_value(field: &FieldInfo) -> TokenStream2 {

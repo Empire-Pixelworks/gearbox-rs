@@ -1,10 +1,10 @@
+use crate::error::PgError;
+use gearbox_rs_macros::cog_config;
 use serde::{Deserialize, Serialize};
 use sqlx::migrate::Migrator;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::{Executor, PgPool, Pool, Postgres};
 use std::path::Path;
-use gearbox_rs_macros::cog_config;
-use crate::error::PgError;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[cog_config("postgres")]
@@ -84,14 +84,12 @@ async fn get_migration_conn(config: &PgConfig) -> Result<Pool<Postgres>, PgError
 async fn migrate(config: &PgConfig) -> Result<(), PgError> {
     if !config.migration_path.is_empty() {
         let postgres_pool = get_migration_conn(config).await?;
-        Ok(
-            Migrator::new(Path::new(&config.migration_path))
-                .await
-                .map_err(|e| PgError::MigrationFailed(format!("{:?}", e)))?
-                .run(&postgres_pool)
-                .await
-                .map_err(|e| PgError::MigrationFailed(e.to_string()))?
-        )
+        Ok(Migrator::new(Path::new(&config.migration_path))
+            .await
+            .map_err(|e| PgError::MigrationFailed(format!("{:?}", e)))?
+            .run(&postgres_pool)
+            .await
+            .map_err(|e| PgError::MigrationFailed(e.to_string()))?)
     } else {
         //warn!("No migration path provided; proceeding without running migrations");
         Ok(())

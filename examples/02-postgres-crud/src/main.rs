@@ -9,7 +9,7 @@
 
 use chrono::{DateTime, Utc};
 use gearbox_rs_core::{IntoResponse, Json, Path};
-use gearbox_rs_macros::{gearbox_app, get, pg_queries, Crud, PgEntity};
+use gearbox_rs_macros::{Crud, PgEntity, gearbox_app, get, pg_queries};
 use gearbox_rs_postgres::{PgClient, PgRepository};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -34,25 +34,20 @@ pub struct User {
     #[auto_generated]
     pub id: Uuid,
 
-    #[searchable]
     pub name: String,
 
-    #[searchable(eq)]
     pub email: String,
 
     #[writeonly]
     pub password_hash: String,
 
-    #[searchable(eq)]
     pub role: String,
 
-    #[searchable]
     pub active: bool,
 
     #[readonly]
     pub created_at: DateTime<Utc>,
 
-    #[searchable]
     pub updated_at: DateTime<Utc>,
 }
 
@@ -72,15 +67,12 @@ pub struct Post {
     #[auto_generated]
     pub id: Uuid,
 
-    #[searchable(eq)]
     pub author_id: Uuid,
 
-    #[searchable]
     pub title: String,
 
     pub content: String,
 
-    #[searchable]
     pub published: bool,
 
     #[readonly]
@@ -165,23 +157,18 @@ pg_queries! {
 // ============================================================================
 
 #[get("/users/by-email/{email}")]
-async fn get_user_by_email(
-    Path(email): Path<String>,
-    db: Arc<PgClient>,
-) -> impl IntoResponse {
+async fn get_user_by_email(Path(email): Path<String>, db: Arc<PgClient>) -> impl IntoResponse {
     match db.find_user_by_email(&email).await {
         Ok(Some(user)) => {
             let response = UserResponse::from(user);
             (axum::http::StatusCode::OK, Json(response)).into_response()
         }
         Ok(None) => axum::http::StatusCode::NOT_FOUND.into_response(),
-        Err(e) => {
-            (
-                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({"error": e.to_string()})),
-            )
-                .into_response()
-        }
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response(),
     }
 }
 
@@ -189,13 +176,11 @@ async fn get_user_by_email(
 async fn get_users_with_counts(db: Arc<PgClient>) -> impl IntoResponse {
     match db.get_users_with_post_counts().await {
         Ok(users) => Json(users).into_response(),
-        Err(e) => {
-            (
-                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({"error": e.to_string()})),
-            )
-                .into_response()
-        }
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response(),
     }
 }
 
@@ -220,33 +205,26 @@ async fn get_user_stats(db: Arc<PgClient>) -> impl IntoResponse {
 async fn get_published_posts(db: Arc<PgClient>) -> impl IntoResponse {
     match db.get_published_posts_with_authors().await {
         Ok(posts) => Json(posts).into_response(),
-        Err(e) => {
-            (
-                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({"error": e.to_string()})),
-            )
-                .into_response()
-        }
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response(),
     }
 }
 
 #[get("/users/{id}/posts")]
-async fn get_user_posts(
-    Path(id): Path<Uuid>,
-    db: Arc<PgClient>,
-) -> impl IntoResponse {
+async fn get_user_posts(Path(id): Path<Uuid>, db: Arc<PgClient>) -> impl IntoResponse {
     match db.find_posts_by_author(id).await {
         Ok(posts) => {
             let responses: Vec<PostResponse> = posts.into_iter().map(PostResponse::from).collect();
             Json(responses).into_response()
         }
-        Err(e) => {
-            (
-                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({"error": e.to_string()})),
-            )
-                .into_response()
-        }
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response(),
     }
 }
 
