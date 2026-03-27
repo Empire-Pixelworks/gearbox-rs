@@ -1,10 +1,7 @@
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote};
-use syn::{
-    Data, DeriveInput, Field, Fields, GenericArgument, PathArguments, Type, parse_macro_input,
-    punctuated::Punctuated, token::Comma,
-};
+use syn::{Data, DeriveInput, Error, Field, Fields, Type, parse_macro_input};
 
 enum FieldKind {
     Inject(Type),
@@ -22,18 +19,54 @@ struct ParsedField {
 
 pub fn generate_cog(item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
+    generate_cog_internal(input).unwrap_or_else(|e| e.to_compile_error().into())
+}
+
+fn get_struct_attr_path(attrs: &[syn::Attribute], name: &str) -> Result<Option<syn::Ident>, Error> {
+    let attr = attrs.iter().find(|a| a.path().is_ident(name));
+    match attr {
+        Some(a) => {
+            let ident: syn::Ident = a.parse_args().map_err(|_| {
+                Error::new_spanned(
+                    a,
+                    format!("#[{}] requires a method name, e.g. #[{}(my_method)]", name, name),
+                )
+            })?;
+            Ok(Some(ident))
+        }
+        None => Ok(None),
+    }
+}
+
+fn strip_lifecycle_attrs(attrs: &[syn::Attribute]) -> Vec<&syn::Attribute> {
+    attrs
+        .iter()
+        .filter(|a| !a.path().is_ident("on_start") && !a.path().is_ident("on_shutdown"))
+        .collect()
+}
+
+fn generate_cog_internal(input: DeriveInput) -> Result<TokenStream, Error> {
     let struct_name = &input.ident;
     let struct_name_str = struct_name.to_string();
+
+    let on_start_method = get_struct_attr_path(&input.attrs, "on_start")?;
+    let on_shutdown_method = get_struct_attr_path(&input.attrs, "on_shutdown")?;
 
     let fields = match &input.data {
         Data::Struct(data) => match &data.fields {
             Fields::Named(fields) => &fields.named,
-            _ => panic!("#[cog] only supports structs with named fields"),
+            _ => {
+                return Err(Error::new_spanned(
+                    &input,
+                    "#[cog] only supports structs with named fields",
+                ))
+            }
         },
-        _ => panic!("#[cog] can only be applied to structs"),
+        _ => return Err(Error::new_spanned(&input, "#[cog] can only be applied to structs")),
     };
 
-    let parsed_fields: Vec<ParsedField> = fields.iter().map(parse_field).collect();
+    let parsed_fields: Vec<ParsedField> =
+        fields.iter().map(parse_field).collect::<Result<Vec<_>, _>>()?;
 
     let inject_types: Vec<&Type> = parsed_fields
         .iter()
@@ -52,10 +85,10 @@ pub fn generate_cog(item: TokenStream) -> TokenStream {
             let ty = &f.ty;
             match &f.kind {
                 FieldKind::Inject(inner) => {
-                    quote! { let #name: #ty = hub.registry.get::<#inner>()?; }
+                    quote! { let #name: #ty = hub.registry_get::<#inner>()?; }
                 }
                 FieldKind::Config => {
-                    quote! { let #name: #ty = hub.config.get::<#ty>(); }
+                    quote! { let #name: #ty = hub.config_get::<#ty>()?; }
                 }
                 FieldKind::Default => {
                     quote! { let #name: #ty = Default::default(); }
@@ -76,11 +109,13 @@ pub fn generate_cog(item: TokenStream) -> TokenStream {
     let attrs = &input.attrs;
     let vis = &input.vis;
 
+    let clean_attrs = strip_lifecycle_attrs(attrs);
+
     let original_struct = match &input.data {
         Data::Struct(data) => {
-            let cleaned_fields = strip_custom_attrs(&data.fields);
+            let cleaned_fields = crate::utils::strip_custom_attrs(&data.fields);
             quote! {
-                #(#attrs)*
+                #(#clean_attrs)*
                 #vis struct #struct_name #ty_generics #where_clause {
                     #cleaned_fields
                 }
@@ -89,12 +124,44 @@ pub fn generate_cog(item: TokenStream) -> TokenStream {
         _ => unreachable!(),
     };
 
-    quote! {
+    let core = crate::paths::core_crate();
+
+    let on_start_impl = on_start_method.map(|method| {
+        quote! {
+            fn on_start(
+                &self,
+                cog: std::sync::Arc<dyn std::any::Any + Send + Sync>
+            ) -> #core::BoxFuture<'static, Result<(), #core::Error>> {
+                Box::pin(async move {
+                    let concrete = cog.downcast_ref::<#struct_name #ty_generics>()
+                        .ok_or_else(|| #core::Error::CogDowncastFailed(#struct_name_str.to_string()))?;
+                    concrete.#method().await
+                })
+            }
+        }
+    });
+
+    let on_shutdown_impl = on_shutdown_method.map(|method| {
+        quote! {
+            fn on_shutdown(
+                &self,
+                cog: std::sync::Arc<dyn std::any::Any + Send + Sync>
+            ) -> #core::BoxFuture<'static, Result<(), #core::Error>> {
+                Box::pin(async move {
+                    let concrete = cog.downcast_ref::<#struct_name #ty_generics>()
+                        .ok_or_else(|| #core::Error::CogDowncastFailed(#struct_name_str.to_string()))?;
+                    concrete.#method().await
+                })
+            }
+        }
+    });
+
+    Ok(quote! {
         #original_struct
 
         struct #factory_name;
 
-        impl gearbox_rs_core::CogFactory for #factory_name {
+        impl #core::CogFactory for #factory_name {
             fn type_id(&self) -> std::any::TypeId {
                 std::any::TypeId::of::<#struct_name #ty_generics>()
             }
@@ -109,73 +176,87 @@ pub fn generate_cog(item: TokenStream) -> TokenStream {
 
             fn build(
                 &self,
-                hub: std::sync::Arc<gearbox_rs_core::Hub>
-            ) -> gearbox_rs_core::BoxFuture<
+                hub: std::sync::Arc<#core::Hub>
+            ) -> #core::BoxFuture<
                 'static,
-                Result<std::sync::Arc<dyn std::any::Any + Send + Sync>, gearbox_rs_core::Error>
+                Result<std::sync::Arc<dyn std::any::Any + Send + Sync>, #core::Error>
             > {
                 Box::pin(async move {
                     Ok(std::sync::Arc::new(
-                        <#struct_name #ty_generics as gearbox_rs_core::Cog>::new(hub).await?
+                        <#struct_name #ty_generics as #core::Cog>::new(hub).await?
                     ) as std::sync::Arc<dyn std::any::Any + Send + Sync>)
                 })
             }
+
+            #on_start_impl
+            #on_shutdown_impl
         }
 
-        #[gearbox_rs_core::async_trait]
-        impl #impl_generics gearbox_rs_core::Cog for #struct_name #ty_generics #where_clause {
+        #[#core::async_trait]
+        impl #impl_generics #core::Cog for #struct_name #ty_generics #where_clause {
             async fn new(
-                hub: std::sync::Arc<gearbox_rs_core::Hub>
-            ) -> Result<Self, gearbox_rs_core::Error> {
+                hub: std::sync::Arc<#core::Hub>
+            ) -> Result<Self, #core::Error> {
                 #(#field_extractions)*
                 Ok(Self { #(#field_names),* })
             }
         }
 
-        gearbox_rs_core::inventory::submit!(
-            &#factory_name as &'static dyn gearbox_rs_core::CogFactory
+        #core::inventory::submit!(
+            &#factory_name as &'static dyn #core::CogFactory
         );
     }
-    .into()
+    .into())
 }
 
-fn parse_field(field: &Field) -> ParsedField {
-    let name = field.ident.clone().expect("Field must have a name");
+fn parse_field(field: &Field) -> Result<ParsedField, Error> {
+    let name = field
+        .ident
+        .clone()
+        .ok_or_else(|| Error::new_spanned(field, "field must have a name"))?;
     let ty = field.ty.clone();
 
-    let has_inject = field.attrs.iter().any(|a| a.path().is_ident("inject"));
-    let has_config = field.attrs.iter().any(|a| a.path().is_ident("config"));
+    let has_inject = crate::utils::has_attr(field, "inject");
+    let has_config = crate::utils::has_attr(field, "config");
 
-    let default_fn = field.attrs.iter().find_map(|a| {
-        if a.path().is_ident("default") {
-            Some(a.parse_args::<syn::Path>().unwrap_or_else(|_| {
-                panic!(
-                    "#[default] on field '{}' requires a function path. \
-                    Expected: #[default(my_function)] where my_function: fn() -> {}",
-                    name,
-                    quote!(#ty)
+    let default_fn = field
+        .attrs
+        .iter()
+        .find(|a| a.path().is_ident("default"))
+        .map(|a| {
+            a.parse_args::<syn::Path>().map_err(|_| {
+                Error::new_spanned(
+                    a,
+                    format!(
+                        "#[default] on field '{}' requires a function path. \
+                        Expected: #[default(my_function)] where my_function: fn() -> {}",
+                        name,
+                        quote!(#ty)
+                    ),
                 )
-            }))
-        } else {
-            None
-        }
-    });
+            })
+        })
+        .transpose()?;
 
-    let default_async_fn = field.attrs.iter().find_map(|a| {
-        if a.path().is_ident("default_async") {
-            Some(a.parse_args::<syn::Path>().unwrap_or_else(|_| {
-                panic!(
-                    "#[default_async] on field '{}' requires a function path. \
-                    Expected: #[default_async(my_function)] where my_function: \
-                    async fn(&Arc<Hub>) -> Result<{}, Error>",
-                    name,
-                    quote!(#ty)
+    let default_async_fn = field
+        .attrs
+        .iter()
+        .find(|a| a.path().is_ident("default_async"))
+        .map(|a| {
+            a.parse_args::<syn::Path>().map_err(|_| {
+                Error::new_spanned(
+                    a,
+                    format!(
+                        "#[default_async] on field '{}' requires a function path. \
+                        Expected: #[default_async(my_function)] where my_function: \
+                        async fn(&Arc<Hub>) -> Result<{}, Error>",
+                        name,
+                        quote!(#ty)
+                    ),
                 )
-            }))
-        } else {
-            None
-        }
-    });
+            })
+        })
+        .transpose()?;
 
     // Validate no conflicting attributes
     let attr_count = has_inject as u8
@@ -184,16 +265,20 @@ fn parse_field(field: &Field) -> ParsedField {
         + default_async_fn.is_some() as u8;
 
     if attr_count > 1 {
-        panic!(
-            "Field '{}' has conflicting attributes. Use only one of: \
-            #[inject], #[config], #[default(fn)], #[default_async(fn)]",
-            name
-        );
+        return Err(Error::new_spanned(
+            field,
+            format!(
+                "field '{}' has conflicting attributes. Use only one of: \
+                #[inject], #[config], #[default(fn)], #[default_async(fn)]",
+                name
+            ),
+        ));
     }
 
     let kind = if has_inject {
-        let inner = extract_arc_inner(&ty)
-            .unwrap_or_else(|| panic!("#[inject] field '{}' must be Arc<T>", name));
+        let inner = crate::utils::extract_arc_inner(&ty).cloned().ok_or_else(|| {
+            Error::new_spanned(&field.ty, format!("#[inject] field '{}' must be Arc<T>", name))
+        })?;
         FieldKind::Inject(inner)
     } else if has_config {
         FieldKind::Config
@@ -205,46 +290,6 @@ fn parse_field(field: &Field) -> ParsedField {
         FieldKind::Default
     };
 
-    ParsedField { name, ty, kind }
+    Ok(ParsedField { name, ty, kind })
 }
 
-fn extract_arc_inner(ty: &Type) -> Option<Type> {
-    if let Type::Path(type_path) = ty
-        && let Some(segment) = type_path.path.segments.last()
-        && segment.ident == "Arc"
-        && let PathArguments::AngleBracketed(args) = &segment.arguments
-        && let Some(GenericArgument::Type(inner)) = args.args.first()
-    {
-        return Some(inner.clone());
-    }
-    None
-}
-
-fn strip_custom_attrs(fields: &Fields) -> TokenStream2 {
-    match fields {
-        Fields::Named(named) => {
-            let cleaned: Punctuated<TokenStream2, Comma> = named
-                .named
-                .iter()
-                .map(|f| {
-                    let attrs: Vec<_> = f
-                        .attrs
-                        .iter()
-                        .filter(|a| {
-                            !a.path().is_ident("inject")
-                                && !a.path().is_ident("config")
-                                && !a.path().is_ident("default")
-                                && !a.path().is_ident("default_async")
-                        })
-                        .collect();
-                    let vis = &f.vis;
-                    let name = &f.ident;
-                    let ty = &f.ty;
-                    quote! { #(#attrs)* #vis #name: #ty }
-                })
-                .collect();
-            quote! { #cleaned }
-        }
-        _ => quote! {},
-    }
-}

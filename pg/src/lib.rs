@@ -5,7 +5,7 @@ mod error;
 mod repository;
 
 pub use client::PgClient;
-pub use config::PgConfig;
+pub use config::{PgConfig, SchemaConfig};
 pub use entity::PgEntity;
 pub use error::PgError;
 pub use repository::PgRepository;

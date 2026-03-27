@@ -9,9 +9,9 @@
 //! - `pg_queries!` for custom SQL queries
 
 use chrono::{DateTime, Utc};
-use gearbox_rs_core::{IntoResponse, Json, Path};
-use gearbox_rs_macros::{Crud, PgEntity, get, pg_queries};
-use gearbox_rs_postgres::{PgClient, PgRepository};
+use gearbox_rs::{
+    Crud, IntoResponse, Json, PgClient, PgEntity, PgRepository, Path, get, pg_queries,
+};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 

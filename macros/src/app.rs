@@ -13,10 +13,12 @@ pub fn generate_gearbox_app(_attr: TokenStream, item: TokenStream) -> TokenStrea
             .into();
     }
 
+    let core = crate::paths::core_crate();
+
     let expanded = quote! {
         #[tokio::main]
-        async fn main() -> Result<(), gearbox_rs_core::Error> {
-            gearbox_rs_core::Gearbox::crank().await?.ignite().await
+        async fn main() -> Result<(), #core::Error> {
+            #core::Gearbox::crank().await?.ignite().await
         }
     };
 

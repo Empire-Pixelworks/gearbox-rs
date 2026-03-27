@@ -12,6 +12,7 @@ readme = "../README.md"
 
 [features]
 default = []
+testing = []
 
 [dependencies]
 async-trait = { workspace = true }

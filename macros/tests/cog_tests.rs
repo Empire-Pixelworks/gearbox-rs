@@ -3,6 +3,7 @@
 use gearbox_rs_core::{Cog, CogConfig, Config, Error, Hub};
 use gearbox_rs_macros::{cog, cog_config};
 use serde::Deserialize;
+use serde_json::Value;
 use std::sync::Arc;
 
 // === Sync default function tests ===
@@ -36,7 +37,7 @@ async fn test_sync_default_fn() {
 
 async fn create_async_value(hub: Arc<Hub>) -> Result<String, Error> {
     // Access hub to prove we have it
-    let _ = &hub.config;
+    let _ = hub.app_config();
     Ok("async_initialized".to_string())
 }
 
@@ -150,6 +151,7 @@ async fn test_module_path_functions() {
 
 #[cog_config("test-config")]
 #[derive(Default, Deserialize)]
+#[serde(default)]
 pub struct TestConfig {
     #[allow(dead_code)]
     value: String,
@@ -162,6 +164,7 @@ fn test_cog_config_macro() {
 
 #[cog_config("database")]
 #[derive(Default, Deserialize)]
+#[serde(default)]
 pub struct DbConfig {
     #[allow(dead_code)]
     url: String,
@@ -172,4 +175,90 @@ pub struct DbConfig {
 #[test]
 fn test_cog_config_macro_database() {
     assert_eq!(DbConfig::CONFIG_KEY, "database");
+}
+
+// === Zero-dependency cog (only Default fields) ===
+
+#[cog]
+pub struct ZeroDependencyCog {
+    counter: u64,
+    label: String,
+    active: bool,
+}
+
+#[tokio::test]
+async fn test_zero_dependency_cog() {
+    let hub = Arc::new(Hub::new(Config::default()));
+    let cog = ZeroDependencyCog::new(hub).await.unwrap();
+
+    assert_eq!(cog.counter, 0);
+    assert_eq!(cog.label, "");
+    assert!(!cog.active);
+}
+
+// === Config-only cog ===
+
+#[cog_config("greeting")]
+#[derive(Default, Clone, Deserialize)]
+#[serde(default)]
+pub struct GreetingConfig {
+    pub message: String,
+}
+
+#[cog]
+pub struct ConfigOnlyCog {
+    #[config]
+    greeting: GreetingConfig,
+}
+
+#[tokio::test]
+async fn test_config_only_cog() {
+    // Use Config::from_value so inventory deserialization populates the config store
+    let config = Config::from_value(Value::Object(Default::default())).unwrap();
+    let hub = Arc::new(Hub::new(config));
+    let cog = ConfigOnlyCog::new(hub).await.unwrap();
+
+    // Config section not in TOML, so defaults are used
+    assert_eq!(cog.greeting.message, "");
+}
+
+#[tokio::test]
+async fn test_config_only_cog_with_values() {
+    let raw = serde_json::json!({
+        "greeting": {
+            "message": "Hello, World!"
+        }
+    });
+    let config = Config::from_value(raw).unwrap();
+    let hub = Arc::new(Hub::new(config));
+    let cog = ConfigOnlyCog::new(hub).await.unwrap();
+
+    assert_eq!(cog.greeting.message, "Hello, World!");
+}
+
+// === Default-only cog (only #[default] and #[default_async] fields) ===
+
+fn make_tag() -> String {
+    "tagged".to_string()
+}
+
+async fn make_data(_hub: Arc<Hub>) -> Result<Vec<u8>, Error> {
+    Ok(vec![1, 2, 3])
+}
+
+#[cog]
+pub struct DefaultOnlyCog {
+    #[default(make_tag)]
+    tag: String,
+    #[default_async(make_data)]
+    data: Vec<u8>,
+}
+
+#[tokio::test]
+async fn test_default_only_cog() {
+    let hub = Arc::new(Hub::new(Config::default()));
+    let cog = DefaultOnlyCog::new(hub).await.unwrap();
+
+    assert_eq!(cog.tag, "tagged");
+    assert_eq!(cog.data, vec![1, 2, 3]);
 }

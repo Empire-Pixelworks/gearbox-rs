@@ -1,0 +1,3 @@
+[app]
+http_port = 3002
+log_level = "debug"

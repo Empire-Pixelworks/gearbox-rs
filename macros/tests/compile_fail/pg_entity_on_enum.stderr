@@ -1,0 +1,9 @@
+error: PgEntity can only be derived for structs
+ --> tests/compile_fail/pg_entity_on_enum.rs:4:1
+  |
+4 | / #[table("things")]
+5 | | enum NotAStruct {
+6 | |     A,
+7 | |     B,
+8 | | }
+  | |_^

@@ -1,0 +1,5 @@
+error: #[inject] field 'field' must be Arc<T>
+ --> tests/compile_fail/inject_non_arc.rs:6:12
+  |
+6 |     field: String,
+  |            ^^^^^^

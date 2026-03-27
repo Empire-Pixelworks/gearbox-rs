@@ -4,9 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-gearbox-rs-core = { path = "../../core" }
-gearbox-rs-macros = { path = "../../macros" }
-gearbox-rs-postgres = { path = "../../pg" }
+gearbox-rs = { path = "../../gearbox", features = ["postgres"] }
 tokio = { workspace = true, features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 tracing-subscriber = "0.3"

@@ -1,15 +1,23 @@
 use thiserror::Error;
 
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum PgError {
-    #[error("{0}")]
+    #[error("Pool initialization failed: {0}")]
     PoolInitializeError(String),
-    #[error("{0}")]
-    ConnectionFailed(String),
-    #[error("{0}")]
-    MigrationFailed(String),
+
+    #[error("Database connection failed")]
+    ConnectionFailed(#[source] sqlx::Error),
+
+    #[error("Migration failed")]
+    MigrationFailed(#[from] sqlx::migrate::MigrateError),
+
     #[error("PSQL Error")]
     PsqlError(#[from] sqlx::Error),
+
+    #[error("No pool registered for schema '{0}'")]
+    SchemaNotFound(String),
+
     #[error("Entity not found")]
     NotFound,
 }

@@ -1,0 +1,12 @@
+[package]
+name = "error-handling"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+gearbox-rs = { path = "../../gearbox" }
+tokio = { workspace = true, features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+axum = { workspace = true }
+thiserror = { workspace = true }
+dashmap = { workspace = true }

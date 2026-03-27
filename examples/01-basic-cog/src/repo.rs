@@ -1,5 +1,5 @@
 use dashmap::DashMap;
-use gearbox_rs_macros::cog;
+use gearbox_rs::cog;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Serialize, Deserialize)]

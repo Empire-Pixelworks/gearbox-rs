@@ -27,6 +27,10 @@ pub trait PgEntity: Send + Sync + Sized {
     /// The database table name (may include schema, e.g., "public.users")
     const TABLE: &'static str;
 
+    /// The schema key used to resolve the correct connection pool.
+    /// Defaults to "default" for backward compatibility with single-schema configs.
+    const SCHEMA: &'static str = "default";
+
     /// All column names that map to struct fields (excludes `#[skip]` fields)
     const COLUMNS: &'static [&'static str];
 

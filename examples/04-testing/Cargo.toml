@@ -1,0 +1,16 @@
+[package]
+name = "testing-example"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+gearbox-rs = { path = "../../gearbox", features = ["testing"] }
+tokio = { workspace = true, features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+dashmap = { workspace = true }
+axum = { workspace = true }
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"

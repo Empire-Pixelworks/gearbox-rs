@@ -2,6 +2,22 @@
 
 use serde::Serialize;
 
+/// A standardized error response for CRUD endpoints.
+#[derive(Debug, Clone, Serialize)]
+pub struct ErrorResponse {
+    /// A human-readable error message.
+    pub error: String,
+}
+
+impl ErrorResponse {
+    /// Create a new error response.
+    pub fn new(error: impl Into<String>) -> Self {
+        Self {
+            error: error.into(),
+        }
+    }
+}
+
 /// A paginated response wrapper for list endpoints.
 ///
 /// This wrapper includes metadata about the pagination state along with

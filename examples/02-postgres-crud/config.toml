@@ -2,4 +2,11 @@
 http-port = 8090
 
 [postgres]
-schema_name = "testing"
+
+[postgres.schemas.users]
+schema_name = "users_schema"
+migration_path = "./migrations/users"
+
+[postgres.schemas.posts]
+schema_name = "posts_schema"
+migration_path = "./migrations/posts"

@@ -1,0 +1,13 @@
+[package]
+name = "middleware-example"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+gearbox-rs = { path = "../../gearbox" }
+tokio = { workspace = true, features = ["full"] }
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+tracing = { workspace = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+serde_json = "1.0"
+axum = { workspace = true }

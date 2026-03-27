@@ -18,9 +18,6 @@ pub struct CrudFieldInfo {
     pub writeonly: bool,
     /// Field should be skipped entirely from CRUD operations.
     pub skip: bool,
-    /// Optional pg_type override for SQL binding.
-    #[allow(dead_code)]
-    pub pg_type: Option<Type>,
 }
 
 impl CrudFieldInfo {
@@ -59,7 +56,6 @@ pub struct CrudConfig {
 #[derive(Debug)]
 pub struct CrudEntityInfo {
     pub name: Ident,
-    pub table: String,
     pub config: CrudConfig,
     pub fields: Vec<CrudFieldInfo>,
 }
@@ -162,38 +158,14 @@ fn parse_field_info(field: &syn::Field) -> Result<CrudFieldInfo, Error> {
         .ok_or(syn::Error::new_spanned(field, "named field required"))?;
     let ty = field.ty.clone();
 
-    let mut is_primary_key = false;
-    let mut auto_generated = false;
-    let mut readonly = false;
-    let mut writeonly = false;
-    let mut skip = false;
-    let mut pg_type = None;
-
-    for attr in &field.attrs {
-        if attr.path().is_ident("primary_key") {
-            is_primary_key = true;
-        } else if attr.path().is_ident("auto_generated") {
-            auto_generated = true;
-        } else if attr.path().is_ident("readonly") {
-            readonly = true;
-        } else if attr.path().is_ident("writeonly") {
-            writeonly = true;
-        } else if attr.path().is_ident("skip") {
-            skip = true;
-        } else if attr.path().is_ident("pg_type") {
-            pg_type = attr.parse_args::<Type>().ok();
-        }
-    }
-
     Ok(CrudFieldInfo {
         ident,
         ty,
-        is_primary_key,
-        auto_generated,
-        readonly,
-        writeonly,
-        skip,
-        pg_type,
+        is_primary_key: crate::utils::has_attr(field, "primary_key"),
+        auto_generated: crate::utils::has_attr(field, "auto_generated"),
+        readonly: crate::utils::has_attr(field, "readonly"),
+        writeonly: crate::utils::has_attr(field, "writeonly"),
+        skip: crate::utils::has_attr(field, "skip"),
     })
 }
 
@@ -201,8 +173,8 @@ fn parse_field_info(field: &syn::Field) -> Result<CrudFieldInfo, Error> {
 pub fn parse_crud_entity(input: &DeriveInput) -> Result<CrudEntityInfo, Error> {
     let name = input.ident.clone();
 
-    // Parse table name (required - comes from PgEntity)
-    let table = parse_table_name(&input.attrs).ok_or(Error::new_spanned(
+    // Validate table name is present (required - comes from PgEntity)
+    parse_table_name(&input.attrs).ok_or(Error::new_spanned(
         input,
         "#[table(\"name\")] attribute is required for Crud derive",
     ))?;
@@ -231,7 +203,6 @@ pub fn parse_crud_entity(input: &DeriveInput) -> Result<CrudEntityInfo, Error> {
 
     Ok(CrudEntityInfo {
         name,
-        table,
         config,
         fields,
     })

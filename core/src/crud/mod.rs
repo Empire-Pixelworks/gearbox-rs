@@ -5,4 +5,4 @@
 
 mod response;
 
-pub use response::PagedResponse;
+pub use response::{ErrorResponse, PagedResponse};

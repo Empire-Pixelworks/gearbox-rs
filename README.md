@@ -135,6 +135,61 @@ Gearbox uses **relaxed binding** - all of these match `max_connections`:
 - `max_connections` (TOML snake_case)
 - `MAXCONNECTIONS` (env var)
 
+#### Default Values
+
+If a TOML section is missing entirely, Gearbox uses `Default::default()` for that config type. For partial sections (some fields present, others missing), use `#[serde(default)]` on the struct to fill in missing fields from `Default`:
+
+```rust
+#[cog_config("database")]
+#[derive(Default, Clone, Deserialize)]
+#[serde(default)]  // Missing fields use Default impl values
+pub struct DbConfig {
+    pub url: String,
+    pub max_connections: u32,
+}
+
+impl Default for DbConfig {
+    fn default() -> Self {
+        Self {
+            url: String::new(),
+            max_connections: 10,
+        }
+    }
+}
+```
+
+#### Config Validation
+
+Add a validation function and reference it in the macro to catch invalid values at startup:
+
+```rust
+fn validate_db(config: &DbConfig) -> Result<(), String> {
+    if config.url.is_empty() {
+        return Err("database url must not be empty".to_string());
+    }
+    if config.max_connections == 0 {
+        return Err("max_connections must be > 0".to_string());
+    }
+    Ok(())
+}
+
+#[cog_config("database", validate = "validate_db")]
+#[derive(Default, Clone, Deserialize)]
+#[serde(default)]
+pub struct DbConfig {
+    pub url: String,
+    pub max_connections: u32,
+}
+```
+
+Validation runs automatically after deserialization during `Gearbox::crank()`. If validation fails, startup aborts with a clear error message.
+
+#### Startup Diagnostics
+
+Gearbox logs configuration status at startup:
+- **WARN** for each config section not found in the file/env (falling back to defaults)
+- **WARN** for TOML sections that exist but have no matching `#[cog_config]` type (possible typos)
+
 ### Routes
 
 Define HTTP handlers with route macros:
@@ -169,6 +224,28 @@ async fn get_user(
 Available macros: `#[get]`, `#[post]`, `#[put]`, `#[delete]`, `#[patch]`
 
 `Arc<T>` parameters are automatically transformed to use Gearbox's `Inject<T>` extractor. Other Axum extractors (`Json`, `Path`, `Query`, etc.) work as normal.
+
+#### How Parameter Injection Works
+
+When you write a handler like this:
+
+```rust
+#[get("/users")]
+async fn list(repo: Arc<UserRepo>) -> Json<Vec<User>> { ... }
+```
+
+The route macro rewrites it (roughly) to:
+
+```rust
+async fn __handler_list(Inject(repo): Inject<UserRepo>) -> Json<Vec<User>> { ... }
+```
+
+`Inject<T>` is an axum extractor that implements `FromRequestParts`. At request time it:
+1. Extracts the `Arc<Hub>` from axum's request state.
+2. Calls `hub.registry.get::<T>()` to look up the Cog by type.
+3. Returns the `Arc<T>` wrapped in `Inject(...)`.
+
+Non-`Arc` parameters (`Json<T>`, `Path<T>`, `Query<T>`, etc.) are passed through to axum unchanged. This means you can mix injected services with standard extractors freely.
 
 ### PostgreSQL Entities
 
@@ -244,7 +321,19 @@ pg_queries! {
 }
 ```
 
-Usage - import the `PgQueries` trait:
+When using multi-schema support, declare the schema at the top of the block:
+
+```rust
+pg_queries! {
+    schema = "accounts";
+
+    fn find_user_by_email(email: &str) -> Option<User> {
+        "SELECT * FROM users WHERE email = $1"
+    }
+}
+```
+
+Usage - import the generated `PgQueries` trait (or `PgQueries{Schema}` when using a named schema):
 
 ```rust
 use crate::PgQueries;
@@ -414,6 +503,184 @@ pub struct AuditLog { ... }
 #[crud(skip_create)]   // No POST endpoint
 #[crud(skip_delete)]   // No DELETE endpoint
 ```
+
+### Multi-Schema Support
+
+Gearbox supports multiple PostgreSQL schemas within a single database instance. This is useful for consolidating multiple apps into a single monolith while keeping their data isolated.
+
+#### Configuration
+
+Define multiple schemas in `config.toml`:
+
+```toml
+[postgres]
+database_url = "localhost:5432"
+database_username = "postgres"
+database_password = "postgres"
+max_connections = 5
+
+[postgres.schemas.accounts]
+schema_name = "accounts"
+migration_path = "./migrations/accounts"
+
+[postgres.schemas.billing]
+schema_name = "billing"
+migration_path = "./migrations/billing"
+```
+
+Each schema gets its own connection pool with `search_path` pinned, and its own migration directory. Schemas are created automatically on startup.
+
+#### Entity Schema Binding
+
+Annotate entities with `#[schema("name")]` to bind them to a specific schema's pool:
+
+```rust
+#[derive(PgEntity, Crud)]
+#[table("users")]
+#[schema("accounts")]
+#[crud(path = "/users")]
+pub struct User {
+    #[primary_key]
+    pub id: Uuid,
+    pub name: String,
+}
+
+#[derive(PgEntity, Crud)]
+#[table("invoices")]
+#[schema("billing")]
+#[crud(path = "/invoices")]
+pub struct Invoice {
+    #[primary_key]
+    pub id: Uuid,
+    pub amount: f64,
+}
+```
+
+Each entity's generated repository methods automatically route to the correct pool. Cross-schema queries are discouraged by design — each entity is bound to exactly one schema.
+
+#### Custom Queries with Schemas
+
+Each `pg_queries!` block declares which schema it targets:
+
+```rust
+pg_queries! {
+    schema = "accounts";
+
+    fn find_user_by_email(email: &str) -> Option<User> {
+        "SELECT * FROM users WHERE email = $1"
+    }
+}
+
+pg_queries! {
+    schema = "billing";
+
+    fn get_unpaid_invoices() -> Vec<Invoice> {
+        "SELECT * FROM invoices WHERE paid = false"
+    }
+}
+```
+
+#### Backward Compatibility
+
+The legacy single-schema config format still works:
+
+```toml
+[postgres]
+schema_name = "my_app"
+migration_path = "./migrations"
+```
+
+Entities without a `#[schema("...")]` attribute use the `"default"` pool, which maps to the legacy config. Existing apps require zero changes.
+
+## Middleware
+
+Gearbox exposes Axum's middleware system through the `router_with` method. Use it to add tower layers for CORS, tracing, compression, auth, and more.
+
+### Adding Middleware
+
+When you need middleware, write `main` manually instead of using `#[gearbox_app]`:
+
+```rust
+use gearbox_rs::{Error, Gearbox};
+use tower_http::cors::CorsLayer;
+use tower_http::trace::TraceLayer;
+
+#[tokio::main]
+async fn main() -> Result<(), Error> {
+    Gearbox::crank().await?
+        .router_with(|router| {
+            router
+                .layer(CorsLayer::permissive())
+                .layer(TraceLayer::new_for_http())
+        })
+        .ignite()
+        .await
+}
+```
+
+The closure receives the fully-built `axum::Router` (after state is applied), so any tower `Layer` works directly. `#[gearbox_app]` still works for apps that don't need middleware.
+
+### Lifecycle Hooks
+
+Cogs can opt in to lifecycle callbacks with `#[on_start]` and `#[on_shutdown]` attributes:
+
+```rust
+#[cog]
+#[on_start(initialize)]
+#[on_shutdown(cleanup)]
+pub struct MyService {
+    #[inject]
+    db: Arc<Database>,
+}
+
+impl MyService {
+    async fn initialize(&self) -> Result<(), Error> {
+        tracing::info!("MyService started, warming cache...");
+        Ok(())
+    }
+
+    async fn cleanup(&self) -> Result<(), Error> {
+        tracing::info!("MyService shutting down, flushing buffers...");
+        Ok(())
+    }
+}
+```
+
+- `on_start` is called after all cogs are initialized, in dependency order
+- `on_shutdown` is called when the server receives Ctrl+C or SIGTERM, in reverse dependency order
+- Both are optional - cogs without these attributes have no-op defaults
+
+See `examples/03-middleware/` for a complete working example.
+
+### Dependency Resolution
+
+Gearbox uses topological sorting (Kahn's algorithm) to determine the order in which Cogs are initialized. Each `#[inject]` field declares a dependency, and Cogs with no dependencies are built first.
+
+```
+Database (no deps)           -> initialized first
+  |
+UserRepo (#[inject] Database)  -> initialized second
+  |
+UserService (#[inject] UserRepo) -> initialized third
+```
+
+**Cyclic dependencies** are detected at startup. If Cog A depends on B and B depends on A, `Gearbox::crank()` returns an error:
+
+```
+Error: Cyclic dependency detected involving: CogA, CogB
+```
+
+To resolve a cycle, restructure your services to break the circular reference — for example, extract shared logic into a third Cog.
+
+**Missing dependencies** are also caught at startup. If a `#[inject]` field references a type that has no corresponding `#[cog]` struct, you'll see:
+
+```
+Error: Missing dependency: 'UserService' requires '<TypeId>' which is not registered
+```
+
+Common causes: forgetting to annotate a struct with `#[cog]`, or not including the crate that defines it.
+
+**Shutdown order** is the reverse of initialization order — dependents shut down before their dependencies. Each Cog's `on_shutdown` hook has a 30-second timeout; timeouts are logged but do not block other Cogs from shutting down.
 
 ## Project Structure
 

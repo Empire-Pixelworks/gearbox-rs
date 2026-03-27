@@ -5,7 +5,7 @@ pub fn to_snake_case(s: &str) -> String {
             if i > 0 {
                 result.push('_');
             }
-            result.push(c.to_lowercase().next().unwrap());
+            result.push(c.to_lowercase().next().expect("char lowercasing produced empty iterator"));
         } else {
             result.push(c);
         }

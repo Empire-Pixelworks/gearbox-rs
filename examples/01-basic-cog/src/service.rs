@@ -1,5 +1,5 @@
 use crate::repo::{Database, User};
-use gearbox_rs_macros::cog;
+use gearbox_rs::cog;
 use serde::Deserialize;
 use std::sync::Arc;
 

@@ -1,4 +1,8 @@
+use std::sync::Arc;
+
+use crate::cog::Cog;
 use crate::config::{CogConfig, Config, GearboxAppConfig};
+use crate::error::Error;
 use crate::registry::CogRegistry;
 
 /// Central hub holding the service registry and configuration.
@@ -6,8 +10,8 @@ use crate::registry::CogRegistry;
 /// The Hub is passed to all Cogs during construction and is available
 /// as Axum state in route handlers.
 pub struct Hub {
-    pub registry: CogRegistry,
-    pub config: Config,
+    pub(crate) registry: CogRegistry,
+    pub(crate) config: Config,
 }
 
 impl Hub {
@@ -28,7 +32,7 @@ impl Hub {
     /// ```ignore
     /// let db_config = hub.get_config::<DbConfig>();
     /// ```
-    pub fn get_config<C: CogConfig + Clone>(&self) -> C {
+    pub fn get_config<C: CogConfig + Clone>(&self) -> Result<C, Error> {
         self.config.get::<C>()
     }
 
@@ -44,5 +48,29 @@ impl Hub {
     /// ```
     pub fn app_config(&self) -> &GearboxAppConfig {
         self.config.app()
+    }
+
+    /// Get a cog from the registry by type.
+    ///
+    /// Used by macro-generated code; prefer [`Inject`] in handlers.
+    #[doc(hidden)]
+    pub fn registry_get<C: Cog + 'static>(&self) -> Result<Arc<C>, Error> {
+        self.registry.get::<C>()
+    }
+
+    /// Get a configuration by type.
+    ///
+    /// Used by macro-generated code; prefer [`get_config`](Self::get_config) in application code.
+    #[doc(hidden)]
+    pub fn config_get<C: CogConfig + Clone>(&self) -> Result<C, Error> {
+        self.config.get::<C>()
+    }
+
+    /// Register a Cog instance into the registry.
+    ///
+    /// Useful for testing when you need to build a Cog with `Cog::new(hub)` and
+    /// then register it in the same Hub (e.g. for handler tests with `Inject<T>`).
+    pub fn registry_put<C: Cog + 'static>(&self, cog: C) -> Result<(), Error> {
+        self.registry.put(cog)
     }
 }

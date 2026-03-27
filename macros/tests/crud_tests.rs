@@ -120,3 +120,48 @@ fn test_user_create_into_entity() {
     assert_eq!(entity.id, "generated-id");
     assert_eq!(entity.name, "Test User");
 }
+
+// Entity exercising ALL struct-level and field-level skip options
+#[derive(Clone, PgEntity, Crud)]
+#[table("archived_items")]
+#[crud(path = "/archived", read_only, skip_create, skip_delete)]
+pub struct ArchivedItem {
+    #[primary_key]
+    #[auto_generated]
+    pub id: String,
+
+    pub title: String,
+
+    #[readonly]
+    pub archived_at: i64,
+
+    #[writeonly]
+    pub internal_note: String,
+}
+
+#[test]
+fn test_archived_item_response_excludes_writeonly() {
+    let item = ArchivedItem {
+        id: "abc".to_string(),
+        title: "Old Report".to_string(),
+        archived_at: 1700000000,
+        internal_note: "secret".to_string(),
+    };
+
+    let response = ArchivedItemResponse::from(item);
+    assert_eq!(response.id, "abc");
+    assert_eq!(response.title, "Old Report");
+    assert_eq!(response.archived_at, 1700000000);
+    // internal_note (writeonly) is not in the response
+}
+
+#[test]
+fn test_archived_item_query_dto() {
+    // Query DTO is always generated (list/get endpoints exist even under read_only)
+    let query = ArchivedItemQuery {
+        limit: Some(25),
+        offset: Some(0),
+    };
+    assert_eq!(query.limit, Some(25));
+    assert_eq!(query.offset, Some(0));
+}

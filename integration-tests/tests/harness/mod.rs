@@ -16,11 +16,43 @@ use tokio::task::JoinHandle;
 static PORT_COUNTER: AtomicU16 = AtomicU16::new(19000);
 static PG_INSTANCE: OnceCell<PostgreSQL> = OnceCell::const_new();
 
+/// RAII guard that restores an environment variable to its previous value on drop.
+struct EnvGuard {
+    key: String,
+    prev: Option<String>,
+}
+
+impl EnvGuard {
+    fn set(key: &str, value: &str) -> Self {
+        let prev = std::env::var(key).ok();
+        // SAFETY: Tests run single-threaded via RUST_TEST_THREADS=1 in .cargo/config.toml
+        unsafe { std::env::set_var(key, value) };
+        Self {
+            key: key.to_string(),
+            prev,
+        }
+    }
+}
+
+impl Drop for EnvGuard {
+    fn drop(&mut self) {
+        // SAFETY: Tests run single-threaded via RUST_TEST_THREADS=1 in .cargo/config.toml
+        unsafe {
+            if let Some(v) = &self.prev {
+                std::env::set_var(&self.key, v);
+            } else {
+                std::env::remove_var(&self.key);
+            }
+        }
+    }
+}
+
 /// Test context containing HTTP client and server URL.
 pub struct TestContext {
     pub client: Client,
     pub base_url: String,
     _server_handle: JoinHandle<()>,
+    _env_guards: Vec<EnvGuard>,
 }
 
 impl TestContext {
@@ -57,13 +89,12 @@ impl TestContext {
         let http_port = PORT_COUNTER.fetch_add(1, Ordering::SeqCst);
         let base_url = format!("http://127.0.0.1:{}", http_port);
 
-        // Set environment variables for Gearbox config
-        // SAFETY: Tests should run with --test-threads=1 for env var safety
-        unsafe {
-            std::env::set_var("GEARBOX_POSTGRES__DATABASE_URL", &db_url);
-            std::env::set_var("GEARBOX_GEARBOX_APP__HTTP_PORT", http_port.to_string());
-            std::env::set_var("CONFIG_LOCATION", "/nonexistent/config.toml");
-        }
+        // Set environment variables for Gearbox config (restored on TestContext drop)
+        let env_guards = vec![
+            EnvGuard::set("GEARBOX_POSTGRES__DATABASE_URL", &db_url),
+            EnvGuard::set("GEARBOX_GEARBOX_APP__HTTP_PORT", &http_port.to_string()),
+            EnvGuard::set("CONFIG_LOCATION", "/nonexistent/config.toml"),
+        ];
 
         // Start server in background
         let server_handle = tokio::spawn(async move {
@@ -86,6 +117,7 @@ impl TestContext {
             client,
             base_url,
             _server_handle: server_handle,
+            _env_guards: env_guards,
         }
     }
 
@@ -139,7 +171,7 @@ async fn run_server(
     _port: u16,
     _db_url: &str,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    use gearbox_rs_core::Gearbox;
+    use gearbox_rs::Gearbox;
 
     // The Gearbox::crank() will read from env vars we set
     let gearbox = Gearbox::crank().await?;
