@@ -11,8 +11,8 @@ description = "PostgreSQL integration for Gearbox framework"
 readme = "../README.md"
 
 [dependencies]
-gearbox-rs-core = { path = "../core" }
-gearbox-rs-macros = { path = "../macros" }
+gearbox-rs-core = { path = "../core", version = "1.1.0" }
+gearbox-rs-macros = { path = "../macros", version = "1.1.0" }
 sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "chrono", "uuid"]}
 thiserror = { workspace = true }
 serde = { version = "1.0.228", features = ["derive"] }
