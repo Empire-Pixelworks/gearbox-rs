@@ -11,8 +11,8 @@ description = "A lightweight Rust web framework with dependency injection"
 readme = "../README.md"
 
 [dependencies]
-gearbox-rs-core = { path = "../core" }
-gearbox-rs-macros = { path = "../macros" }
+gearbox-rs-core = { path = "../core", version = "1.1.0" }
+gearbox-rs-macros = { path = "../macros", version = "1.1.0" }
 
 [features]
 default = []
@@ -21,4 +21,5 @@ testing = ["gearbox-rs-core/testing"]
 
 [dependencies.gearbox-rs-postgres]
 path = "../pg"
+version = "1.1.0"
 optional = true
