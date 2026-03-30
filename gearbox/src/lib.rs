@@ -28,6 +28,10 @@ pub use gearbox_rs_core::TestHubBuilder;
 pub use gearbox_rs_core::{IntoResponse, Json, Path, Query};
 pub use gearbox_rs_core::crud;
 
+pub mod log {
+    pub use gearbox_rs_core::log::{debug, error, info, instrument, trace, warn};
+}
+
 // --- Doc-hidden (macro internals, must remain pub for macro expansion) ---
 #[doc(hidden)]
 pub use gearbox_rs_core::{
